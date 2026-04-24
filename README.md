@@ -51,11 +51,11 @@ track('/api/user', body)
 
 ## What it actually does
 
-Most API tooling is about the code you write — OpenAPI specs, generated clients, validators.
+Most API tooling is about the code you write, OpenAPI specs, generated clients, validators.
 apidrift watches the traffic at runtime and tells you when reality diverges from expectations.
 
 It sits between your app and its APIs. For every response, it extracts a lightweight schema
-(field names and types — never values), compares it against the last known shape, and reports
+(field names and types and never values), compares it against the last known shape, and reports
 any differences, classified by impact.
 
 ```
@@ -99,7 +99,7 @@ apidrift types src/types/api.ts           # generate TypeScript interfaces from 
 apidrift lock https://api.example.com/u   # lock schema as an enforced contract
 apidrift contracts                        # list locked contracts
 apidrift compare old.json new.json        # diff two local JSON files
-apidrift check                            # CI mode — exits 1 on breaking drift
+apidrift check                            # CI mode which exits 1 on breaking drift
 apidrift clear                            # reset all snapshots
 apidrift dashboard                        # interactive terminal UI
 ```
@@ -177,7 +177,7 @@ apidrift generate-middleware fastapi   # writes apidrift_middleware.py
 apidrift generate-middleware django    # writes apidrift_middleware.py
 ```
 
-The generated file is a standalone Python class — copy it into your project and add one line to
+The generated file is a standalone Python class, copy it into your project and add one line to
 register it. No Python package required. Full instructions are inside the generated file.
 
 ---
@@ -319,12 +319,12 @@ APIDRIFT_CI=1 node server.js
 apidrift dashboard
 ```
 
-An interactive TUI — no browser, no external process. Four tabs:
+An interactive TUI, no browser, no external process. Four tabs:
 
-- **Overview** — all endpoints, stability scores, change counts, sparklines
-- **Timeline** — schema evolution history for the selected endpoint
-- **Contracts** — locked contracts and their status
-- **Help** — all commands and environment variables
+- **Overview**:  all endpoints, stability scores, change counts, sparklines
+- **Timeline**:  schema evolution history for the selected endpoint
+- **Contracts**: locked contracts and their status
+- **Help**:      all commands and environment variables
 
 Navigate with arrow keys, switch tabs with Tab or 1–4, quit with `q`.
 
