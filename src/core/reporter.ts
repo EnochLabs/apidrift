@@ -157,3 +157,48 @@ export function ciReport(results: DriftResult[]): number {
   console.log(`\n${c.green}✔ No API drift detected.${c.reset}\n`);
   return 0;
 }
+
+/**
+ * Generate a beautiful, interactive static HTML report.
+ */
+export async function generateHtmlReport(outputPath: string): Promise<void> {
+  const fs = await import('fs');
+  const { listSnapshots } = await import('./storage.js');
+  const { getAllHistory } = await import('./history.js');
+  
+  const snapshots = listSnapshots();
+  const history = getAllHistory();
+
+  const data = {
+    snapshots,
+    history,
+    generatedAt: new Date().toISOString(),
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>apidrift Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 p-8">
+    <h1 class="text-3xl font-bold mb-8">apidrift Dashboard</h1>
+    <div class="grid gap-4">
+        ${snapshots.map(s => `
+            <div class="bg-white p-4 rounded shadow">
+                <h2 class="font-bold">${s.endpoint}</h2>
+                <p class="text-sm text-gray-500">Last seen: ${new Date(s.capturedAt).toLocaleString()}</p>
+            </div>
+        `).join('')}
+    </div>
+    <script>
+        console.log("Data:", ${JSON.stringify(data)});
+    </script>
+</body>
+</html>
+  `.trim();
+
+  fs.writeFileSync(outputPath, html, 'utf-8');
+}

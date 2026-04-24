@@ -43,7 +43,7 @@ async function getModules() {
   const { listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore } =
     await import("../core/storage.js");
   const { diffSchemas } = await import("../core/diff.js");
-  const { reportDrift, ciReport } = await import("../core/reporter.js");
+  const { reportDrift, ciReport, generateHtmlReport } = await import("../core/reporter.js");
   const { extractTopLevelSchema } = await import("../core/schema.js");
   const { generateTypesFromSnapshots } = await import("../utils/typegen.js");
   const { compare } = await import("../core/tracker.js");
@@ -51,7 +51,7 @@ async function getModules() {
   const { lockContract, loadContracts, getContract, hasContract } = await import("../core/contract.js");
   return {
     listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore,
-    diffSchemas, reportDrift, ciReport, extractTopLevelSchema, generateTypesFromSnapshots,
+    diffSchemas, reportDrift, ciReport, generateHtmlReport, extractTopLevelSchema, generateTypesFromSnapshots,
     compare, getHistory, getAllHistory, lockContract, loadContracts, getContract, hasContract,
   };
 }
@@ -1145,6 +1145,66 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
 }
 
 // ─── Help ───────────────────────────────────────────────────────────────────
+
+async function cmdCiGen(): Promise<void> {
+  const fs = await import('fs');
+  const path = await import('path');
+  
+  const workflowDir = path.join(process.cwd(), '.github', 'workflows');
+  const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
+  
+  const yaml = `name: apidrift-check
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  api-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Run apidrift check
+        run: |
+          # Ensure apidrift is installed (either as dependency or global)
+          # If not in package.json, we can run it via npx
+          npx apidrift check --json
+        env:
+          APIDRIFT_CI: 1
+`;
+
+  if (!fs.existsSync(workflowDir)) {
+    fs.mkdirSync(workflowDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(workflowFile, yaml, "utf-8");
+  console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
+  console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
+}
+
+
+async function cmdReport(flags: Record<string, string | boolean> = {}): Promise<void> {
+  const { generateHtmlReport } = await getModules();
+  const outputPath = (flags["--output"] as string) || "apidrift-report.html";
+  
+  await generateHtmlReport(outputPath);
+  
+  console.log(`\n  ${c.green}✔  HTML Report generated:${c.reset} ${outputPath}`);
+  console.log(`  ${c.gray}Open this file in your browser to view the API drift dashboard.${c.reset}\n`);
+}
+
 function printHelp(): void {
   console.log(BANNER);
   console.log(`  ${c.bold}COMMANDS${c.reset}\n`);
@@ -1250,6 +1310,8 @@ async function main(): Promise<void> {
     case "types":     await cmdTypes(args[1]); break;
     case "lock":      await cmdLock(args[1]); break;
     case "contracts": await cmdContracts(flags); break;
+    case "report":    await cmdReport(flags as Record<string, string | boolean>); break;
+    case "ci-gen":    await cmdCiGen(); break;
     case "check":     { const code = await cmdCheck(flags); process.exit(code); break; }
     case "clear":     await cmdClear(args[1]); break;
     case "dashboard": {
