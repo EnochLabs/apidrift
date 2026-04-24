@@ -1,5 +1,5 @@
 import { Schema } from "./schema.js";
-export type ChangeKind = "FIELD_REMOVED" | "FIELD_ADDED" | "TYPE_CHANGED" | "NULLABLE_CHANGED" | "OPTIONAL_CHANGED";
+export type ChangeKind = "FIELD_REMOVED" | "FIELD_ADDED" | "TYPE_CHANGED" | "NULLABLE_CHANGED" | "OPTIONAL_CHANGED" | "ARRAY_ITEM_TYPE_CHANGED" | "ENUM_CHANGED" | "PATTERN_CHANGED";
 export type ChangeImpact = "BREAKING" | "NON_BREAKING" | "INFO";
 export interface DriftChange {
     path: string;

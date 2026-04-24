@@ -46,6 +46,10 @@ export declare function sampleStddev(sample: NumericSample): number;
 /**
  * Compare current numeric values against baseline stats.
  * Returns alerts for significant deviations.
+ *
+ * All detection paths are gated behind MIN_SAMPLES_* thresholds so that
+ * the detector stays silent during the warm-up period and only fires once
+ * it has enough data to be statistically meaningful.
  */
 export declare function detectDataDrift(endpoint: string, current: Record<string, number>, baseline: Record<string, FieldStats>): DataDriftResult;
 //# sourceMappingURL=datadrift.d.ts.map

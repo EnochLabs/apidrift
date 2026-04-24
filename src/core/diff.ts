@@ -6,7 +6,9 @@ export type ChangeKind =
   | "TYPE_CHANGED"
   | "NULLABLE_CHANGED"
   | "OPTIONAL_CHANGED"
-  | "ARRAY_ITEM_TYPE_CHANGED";
+  | "ARRAY_ITEM_TYPE_CHANGED"
+  | "ENUM_CHANGED"
+  | "PATTERN_CHANGED";
 
 export type ChangeImpact = "BREAKING" | "NON_BREAKING" | "INFO";
 
@@ -35,8 +37,10 @@ function classifyImpact(kind: ChangeKind): ChangeImpact {
     case "FIELD_REMOVED":
     case "TYPE_CHANGED":
     case "ARRAY_ITEM_TYPE_CHANGED":
+    case "ENUM_CHANGED":
       return "BREAKING";
     case "FIELD_ADDED":
+    case "PATTERN_CHANGED":
       return "NON_BREAKING";
     case "NULLABLE_CHANGED":
     case "OPTIONAL_CHANGED":
@@ -133,6 +137,32 @@ function diffNodes(
       from: oldNode.nullable ? "nullable" : "non-nullable",
       to: newNode.nullable ? "nullable" : "non-nullable",
       description: `Field \`${path}\` nullable status changed`,
+    });
+  }
+
+  // Pattern changed
+  if (oldNode.pattern !== newNode.pattern) {
+    const kind: ChangeKind = "PATTERN_CHANGED";
+    changes.push({
+      path,
+      kind,
+      impact: classifyImpact(kind),
+      from: oldNode.pattern ?? "none",
+      to: newNode.pattern ?? "none",
+      description: `Field \`${path}\` pattern changed: ${oldNode.pattern ?? "none"} → ${newNode.pattern ?? "none"}`,
+    });
+  }
+
+  // Enum changed
+  if (JSON.stringify(oldNode.enum) !== JSON.stringify(newNode.enum)) {
+    const kind: ChangeKind = "ENUM_CHANGED";
+    changes.push({
+      path,
+      kind,
+      impact: classifyImpact(kind),
+      from: oldNode.enum ? `enum(${oldNode.enum.join(",")})` : "none",
+      to: newNode.enum ? `enum(${newNode.enum.join(",")})` : "none",
+      description: `Field \`${path}\` enum values changed`,
     });
   }
 

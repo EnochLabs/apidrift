@@ -5,9 +5,8 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as https from "https";
-// http is only used as a fallback for non-https URLs; alias it
-const http = https;
+import https from "https";
+import http from "http";
 
 const VERSION = "1.0.0";
 
@@ -59,14 +58,14 @@ async function getModules() {
 // ─── Utils ──────────────────────────────────────────────────────────────────
 async function fetchJson(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const client = url.startsWith("https") ? https : http;
-    const req = client.get(url, { headers: { Accept: "application/json" } }, (res) => {
+    const client: any = url.startsWith("https") ? https : http;
+    const req = client.get(url, { headers: { Accept: "application/json" } }, (res: any) => {
       if (res.statusCode && res.statusCode >= 400) {
         reject(new Error(`HTTP ${res.statusCode} from ${url}`));
         return;
       }
       let data = "";
-      res.on("data", (chunk: string) => (data += chunk));
+      res.on("data", (chunk: any) => (data += chunk.toString()));
       res.on("end", () => {
         try { resolve(JSON.parse(data)); }
         catch { reject(new Error(`Response from ${url} is not valid JSON`)); }

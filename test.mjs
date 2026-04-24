@@ -18,6 +18,7 @@ const DIST = path.join(__dirname, "dist");
 // ── Isolated temp directory so tests never touch real project snapshots ──────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "apidrift-test-"));
 process.chdir(TMP);
+
 // Write a package.json so storage locates its root correctly
 fs.writeFileSync(path.join(TMP, "package.json"), '{"name":"test"}', "utf-8");
 
@@ -57,8 +58,6 @@ function assertThrows(fn, label) {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-// (🔥 EVERYTHING BELOW REMAINS EXACTLY THE SAME — unchanged)
-
 describe("Schema extraction — primitives");
 const { extractTopLevelSchema: ext } = m("core/schema.js");
 
@@ -68,10 +67,53 @@ assert(s1.name?.type   === "string",  "string field");
 assert(s1.active?.type === "boolean", "boolean field");
 assert(s1.score?.type  === "null",    "null field");
 
-// ... ✅ ALL YOUR REMAINING CODE CONTINUES UNCHANGED ...
+// ── NEW FEATURES TESTS ───────────────────────────────────────────────────────
+
+describe("Diffing — enums and patterns");
+const { diffSchemas } = m("core/diff.js");
+
+const oldSchema = {
+  status: { type: "string", enum: ["active", "inactive"] },
+  id: { type: "string", pattern: "uuid" }
+};
+
+const newSchema = {
+  status: { type: "string", enum: ["active", "inactive", "pending"] },
+  id: { type: "string", pattern: "email" }
+};
+
+const diff = diffSchemas("test", oldSchema, newSchema);
+
+assert(diff.hasChanges === true, "detects changes");
+assert(diff.changes.some(c => c.kind === "ENUM_CHANGED"), "detects ENUM_CHANGED");
+assert(diff.changes.some(c => c.kind === "PATTERN_CHANGED"), "detects PATTERN_CHANGED");
+assert(diff.hasBreaking === true, "enum change is breaking");
+
+// ── Smart Enum Inference ─────────────────────────────────────────────────────
+
+describe("Smart Inference — enums across calls");
+const { track } = m("core/tracker.js");
+const { getSnapshot } = m("core/storage.js");
+
+const url = "https://api.test.com/status";
+
+track(url, { status: "active" }, { silent: true });
+track(url, { status: "inactive" }, { silent: true });
+track(url, { status: "active" }, { silent: true });
+track(url, { status: "inactive" }, { silent: true });
+track(url, { status: "active" }, { silent: true });
+
+const snap = getSnapshot(url);
+
+assert(snap !== null, "snapshot exists");
+assert(snap.schema.status.enum !== undefined, "infers enum after 5 calls");
+assert(snap.schema.status.enum.includes("active"), "enum contains 'active'");
+assert(snap.schema.status.enum.includes("inactive"), "enum contains 'inactive'");
 
 // ── Summary ──────────────────────────────────────────────────────────────────
+
 console.log("\n" + "─".repeat(52));
+
 if (failed === 0) {
   console.log(`\n  ✔  All ${passed} tests passed.\n`);
 } else {

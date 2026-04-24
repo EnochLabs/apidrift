@@ -43,6 +43,18 @@ function track(url, body, options = {}) {
     const endpoint = options.endpointKey ?? normalizeEndpoint(url);
     const newSchema = (0, schema_js_1.extractTopLevelSchema)(body);
     const existing = (0, storage_js_1.getSnapshot)(endpoint);
+    // Merge metadata from existing schema to enable smart inference across calls
+    if (existing) {
+        for (const key of Object.keys(newSchema)) {
+            if (existing.schema[key]) {
+                (0, schema_js_1.mergeMetadata)(newSchema[key], existing.schema[key]);
+            }
+        }
+        // Also handle root if non-object
+        if (newSchema._root && existing.schema._root) {
+            (0, schema_js_1.mergeMetadata)(newSchema._root, existing.schema._root);
+        }
+    }
     // ── First time seeing this endpoint ──────────────────────────────────────
     if (!existing) {
         (0, storage_js_1.saveSnapshot)(endpoint, newSchema);

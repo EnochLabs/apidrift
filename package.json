@@ -35,8 +35,17 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
-    "api", "drift", "schema", "breaking-changes", "developer-tools",
-    "monitoring", "typescript", "fetch", "axios", "ci", "contract-testing"
+    "api",
+    "drift",
+    "schema",
+    "breaking-changes",
+    "developer-tools",
+    "monitoring",
+    "typescript",
+    "fetch",
+    "axios",
+    "ci",
+    "contract-testing"
   ],
   "author": "apidrift contributors",
   "license": "MIT",
@@ -46,6 +55,7 @@
     "LICENSE"
   ],
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "typescript": "^5.3.3"
   },
   "engines": {

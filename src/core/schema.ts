@@ -20,6 +20,8 @@ export interface SchemaNode {
   // Smart Inference
   enum?: string[];
   pattern?: string;
+  _samples?: string[]; // Internal use for enum inference
+  _seenCount?: number; // Internal use for enum inference
 }
 
 export type Schema = Record<string, SchemaNode>;
@@ -44,14 +46,18 @@ export function extractSchema(value: unknown, seen: WeakSet<object> = new WeakSe
 
   const t = typeof value;
   if (t === "string") {
+    const strValue = value as string;
     const node: SchemaNode = { type: "string" };
     // Pattern detection
     for (const [name, regex] of Object.entries(PATTERNS)) {
-      if (regex.test(value as string)) {
+      if (regex.test(strValue)) {
         node.pattern = name;
         break;
       }
     }
+    // Track samples for enum inference
+    node._samples = [strValue];
+    node._seenCount = 1;
     return node;
   }
   if (t === "number")  return { type: "number" };
@@ -152,6 +158,44 @@ function mergeSchemas(schemas: SchemaNode[]): SchemaNode {
 
   // Truly mixed — return first dominant type
   return { ...schemas[0], nullable: types.has("null") };
+}
+
+/**
+ * Merge metadata like _samples from existing node into new node
+ */
+export function mergeMetadata(newNode: SchemaNode, oldNode?: SchemaNode): void {
+  if (!oldNode) return;
+
+  // Merge samples
+  if (newNode.type === "string" && oldNode.type === "string") {
+    newNode._seenCount = (oldNode._seenCount ?? 0) + 1;
+    const combined = [...(oldNode._samples ?? []), ...(newNode._samples ?? [])];
+    // Keep last 10 unique samples
+    newNode._samples = Array.from(new Set(combined)).slice(-10);
+
+    // Promote to enum if threshold met
+    // Criteria: at least 5 samples seen, and no more than 3 unique values
+    if (newNode._seenCount >= 5) {
+      const unique = newNode._samples;
+      if (unique.length <= 3) {
+        newNode.enum = unique.sort();
+      } else {
+        delete newNode.enum;
+      }
+    }
+  }
+
+  // Recurse into objects
+  if (newNode.type === "object" && oldNode.type === "object" && newNode.children && oldNode.children) {
+    for (const key of Object.keys(newNode.children)) {
+      mergeMetadata(newNode.children[key], oldNode.children[key]);
+    }
+  }
+
+  // Recurse into arrays
+  if (newNode.type === "array" && oldNode.type === "array" && newNode.items && oldNode.items) {
+    mergeMetadata(newNode.items, oldNode.items);
+  }
 }
 
 /**
