@@ -1,0 +1,61 @@
+{
+  "name": "apidrift",
+  "version": "1.0.0",
+  "description": "Zero-config API drift detection. Catches breaking changes instantly — before they break your app.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "apidrift": "dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./register": {
+      "import": "./dist/register.js",
+      "require": "./dist/register.js"
+    },
+    "./react": {
+      "import": "./dist/plugins/react.js",
+      "require": "./dist/plugins/react.js",
+      "types": "./dist/plugins/react.d.ts"
+    },
+    "./express": {
+      "import": "./dist/plugins/express.js",
+      "require": "./dist/plugins/express.js",
+      "types": "./dist/plugins/express.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node test.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "api", "drift", "schema", "breaking-changes", "developer-tools",
+    "monitoring", "typescript", "fetch", "axios", "ci", "contract-testing"
+  ],
+  "author": "apidrift contributors",
+  "license": "MIT",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/apidrift"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/apidrift/issues"
+  }
+}

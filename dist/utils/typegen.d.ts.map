@@ -1,0 +1,1 @@
+{"version":3,"file":"typegen.d.ts","sourceRoot":"","sources":["../../src/utils/typegen.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAc,MAAM,mBAAmB,CAAC;AACvD,OAAO,EAAE,QAAQ,EAAE,MAAM,oBAAoB,CAAC;AAqF9C;;GAEG;AACH,wBAAgB,iBAAiB,CAC/B,IAAI,EAAE,MAAM,EACZ,MAAM,EAAE,MAAM,GACb,MAAM,CAiCR;AAED;;GAEG;AACH,wBAAgB,0BAA0B,CAAC,SAAS,EAAE,QAAQ,EAAE,GAAG,MAAM,CAcxE"}

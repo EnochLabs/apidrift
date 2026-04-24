@@ -1,0 +1,23 @@
+# Source — only dist/ ships
+src/
+tsconfig.json
+
+# Dev & test
+test.mjs
+*.test.ts
+*.spec.ts
+.apidrift/
+apidrift.contract.json
+
+# Tooling
+node_modules/
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.tgz
+.DS_Store
