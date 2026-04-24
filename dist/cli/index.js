@@ -33,6 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * apidrift CLI
@@ -40,9 +43,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const https = __importStar(require("https"));
-// http is only used as a fallback for non-https URLs; alias it
-const http = https;
+const https_1 = __importDefault(require("https"));
+const http_1 = __importDefault(require("http"));
 const VERSION = "1.0.0";
 // ─── Colors ────────────────────────────────────────────────────────────────
 const c = {
@@ -73,7 +75,7 @@ const BANNER = `
 async function getModules() {
     const { listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore } = await Promise.resolve().then(() => __importStar(require("../core/storage.js")));
     const { diffSchemas } = await Promise.resolve().then(() => __importStar(require("../core/diff.js")));
-    const { reportDrift, ciReport } = await Promise.resolve().then(() => __importStar(require("../core/reporter.js")));
+    const { reportDrift, ciReport, generateHtmlReport } = await Promise.resolve().then(() => __importStar(require("../core/reporter.js")));
     const { extractTopLevelSchema } = await Promise.resolve().then(() => __importStar(require("../core/schema.js")));
     const { generateTypesFromSnapshots } = await Promise.resolve().then(() => __importStar(require("../utils/typegen.js")));
     const { compare } = await Promise.resolve().then(() => __importStar(require("../core/tracker.js")));
@@ -81,21 +83,21 @@ async function getModules() {
     const { lockContract, loadContracts, getContract, hasContract } = await Promise.resolve().then(() => __importStar(require("../core/contract.js")));
     return {
         listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore,
-        diffSchemas, reportDrift, ciReport, extractTopLevelSchema, generateTypesFromSnapshots,
+        diffSchemas, reportDrift, ciReport, generateHtmlReport, extractTopLevelSchema, generateTypesFromSnapshots,
         compare, getHistory, getAllHistory, lockContract, loadContracts, getContract, hasContract,
     };
 }
 // ─── Utils ──────────────────────────────────────────────────────────────────
 async function fetchJson(url) {
     return new Promise((resolve, reject) => {
-        const client = url.startsWith("https") ? https : http;
+        const client = url.startsWith("https") ? https_1.default : http_1.default;
         const req = client.get(url, { headers: { Accept: "application/json" } }, (res) => {
             if (res.statusCode && res.statusCode >= 400) {
                 reject(new Error(`HTTP ${res.statusCode} from ${url}`));
                 return;
             }
             let data = "";
-            res.on("data", (chunk) => (data += chunk));
+            res.on("data", (chunk) => (data += chunk.toString()));
             res.on("end", () => {
                 try {
                     resolve(JSON.parse(data));
@@ -138,6 +140,18 @@ function box(title, lines, color = c.cyan) {
     const bot = `${color}└${"─".repeat(width - 2)}┘${c.reset}`;
     return [top, mid, sep, ...rows, bot].join("\n");
 }
+/**
+ * Emit output: if --json flag is set, write JSON to stdout; otherwise print
+ * the human-readable console output via the provided printFn.
+ */
+function outputOrJson(jsonPayload, printFn, flags) {
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(jsonPayload, null, 2) + "\n");
+    }
+    else {
+        printFn();
+    }
+}
 // ─── Commands ───────────────────────────────────────────────────────────────
 async function cmdInit() {
     const dir = path.join(process.cwd(), ".apidrift");
@@ -176,9 +190,25 @@ async function cmdInit() {
     console.log(`  ${c.cyan}apidrift watch https://api.example.com/users${c.reset}\n`);
     console.log(`  ${c.gray}Run ${c.reset}${c.cyan}apidrift --help${c.reset}${c.gray} for all commands.${c.reset}\n`);
 }
-async function cmdList() {
+async function cmdList(flags = {}) {
     const { listSnapshots, getHistory } = await getModules();
     const snapshots = listSnapshots();
+    if (flags["--json"]) {
+        const result = snapshots.map(snap => {
+            const hist = getHistory(snap.endpoint);
+            const versions = hist?.entries.length ?? 1;
+            return {
+                endpoint: snap.endpoint,
+                fieldCount: Object.keys(snap.schema).length,
+                responseCount: snap.responseCount,
+                capturedAt: snap.capturedAt,
+                versions,
+                driftEvents: Math.max(0, versions - 1),
+            };
+        });
+        process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+        return;
+    }
     if (snapshots.length === 0) {
         console.log(`\n  ${c.yellow}No endpoints tracked yet.${c.reset}`);
         console.log(`\n  ${c.gray}Add to your app:${c.reset}  ${c.cyan}import "apidrift/register"${c.reset}`);
@@ -206,26 +236,49 @@ async function cmdDiff(url, flags) {
         console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift diff <url>${c.reset}`);
         process.exit(1);
     }
-    process.stdout.write(`  ${c.gray}Fetching ${truncate(url, 60)}...${c.reset} `);
+    // ── fs.watch mode: watch the snapshots file for offline, zero-latency diffs ──
+    if (flags["--watch-file"]) {
+        await cmdDiffWatchFile(url, flags);
+        return;
+    }
+    if (!flags["--json"]) {
+        process.stdout.write(`  ${c.gray}Fetching ${truncate(url, 60)}...${c.reset} `);
+    }
     let body;
     try {
         body = await fetchJson(url);
-        console.log(`${c.green}✔${c.reset}`);
+        if (!flags["--json"])
+            console.log(`${c.green}✔${c.reset}`);
     }
     catch (err) {
-        console.log(`${c.red}✖${c.reset}`);
-        console.error(`\n  ${c.red}Error:${c.reset} ${err.message}\n`);
+        if (!flags["--json"])
+            console.log(`${c.red}✖${c.reset}`);
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ error: err.message }, null, 2) + "\n");
+        }
+        else {
+            console.error(`\n  ${c.red}Error:${c.reset} ${err.message}\n`);
+        }
         process.exit(1);
     }
     const newSchema = extractTopLevelSchema(body);
     const existing = getSnapshot(url);
     if (!existing) {
         saveSnapshot(url, newSchema);
-        console.log(`\n  ${c.green}✔${c.reset} First snapshot saved for this endpoint.`);
-        console.log(`  ${c.gray}Run again to detect drift.${c.reset}\n`);
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ firstSnapshot: true, endpoint: url, schema: newSchema }, null, 2) + "\n");
+        }
+        else {
+            console.log(`\n  ${c.green}✔${c.reset} First snapshot saved for this endpoint.`);
+            console.log(`  ${c.gray}Run again to detect drift.${c.reset}\n`);
+        }
         return;
     }
     const result = diffSchemas(url, existing.schema, newSchema);
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+        return;
+    }
     if (!result.hasChanges) {
         console.log(`\n  ${c.green}✔ No drift detected.${c.reset}  ${c.gray}Schema unchanged.${c.reset}\n`);
     }
@@ -240,59 +293,185 @@ async function cmdDiff(url, flags) {
         }
     }
 }
+/**
+ * fs.watch mode for diff: watches .apidrift/snapshots.json for changes made
+ * by any other process (e.g. your running app) and immediately shows the diff.
+ * Zero latency, zero network calls, works completely offline.
+ */
+async function cmdDiffWatchFile(url, flags) {
+    const { getStoreDirPath } = await Promise.resolve().then(() => __importStar(require("../core/storage.js")));
+    const { extractTopLevelSchema, diffSchemas, getSnapshot, reportDrift } = await getModules();
+    const snapshotsFile = path.join(getStoreDirPath(), "snapshots.json");
+    if (!flags["--json"]) {
+        console.log(`\n  ${c.cyan}${c.bold}Watching snapshots file${c.reset}`);
+        console.log(`  ${c.gray}File: ${snapshotsFile}${c.reset}`);
+        console.log(`  ${c.gray}Endpoint: ${url}${c.reset}`);
+        console.log(`  ${c.gray}Waiting for changes — Ctrl+C to stop${c.reset}\n`);
+    }
+    let lastChecksum = "";
+    function checkForDrift() {
+        try {
+            const existing = getSnapshot(url);
+            if (!existing)
+                return;
+            const raw = JSON.stringify(existing.schema);
+            if (raw === lastChecksum)
+                return;
+            if (lastChecksum === "") {
+                // First read — record baseline silently
+                lastChecksum = raw;
+                if (!flags["--json"]) {
+                    console.log(`  ${c.green}✔${c.reset} Baseline loaded (${Object.keys(existing.schema).length} fields)`);
+                }
+                return;
+            }
+            // Parse the previous schema from the checksum string
+            const prevSchema = JSON.parse(lastChecksum);
+            const result = diffSchemas(url, prevSchema, existing.schema);
+            lastChecksum = raw;
+            if (result.hasChanges) {
+                if (flags["--json"]) {
+                    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+                }
+                else {
+                    const ts = new Date().toLocaleTimeString();
+                    process.stdout.write(`\n  ${c.gray}[${ts}] Change detected${c.reset}\n`);
+                    reportDrift(result);
+                }
+            }
+        }
+        catch {
+            // File may be mid-write; ignore transient errors
+        }
+    }
+    // Initial read
+    checkForDrift();
+    // Watch for file changes
+    if (fs.existsSync(snapshotsFile)) {
+        fs.watch(snapshotsFile, () => {
+            // Debounce: wait a tick for the write to complete
+            setTimeout(checkForDrift, 50);
+        });
+    }
+    else {
+        // Watch the directory for the file to be created
+        const watchDir = path.dirname(snapshotsFile);
+        if (!fs.existsSync(watchDir))
+            fs.mkdirSync(watchDir, { recursive: true });
+        fs.watch(watchDir, (_event, filename) => {
+            if (filename === "snapshots.json") {
+                setTimeout(checkForDrift, 50);
+            }
+        });
+    }
+    process.on("SIGINT", () => {
+        if (!flags["--json"]) {
+            console.log(`\n\n  ${c.gray}File watch stopped.${c.reset}\n`);
+        }
+        process.exit(0);
+    });
+    // Keep process alive
+    await new Promise(() => { });
+}
 async function cmdWatch(url, flags) {
     const { extractTopLevelSchema, diffSchemas, getSnapshot, saveSnapshot, reportDrift } = await getModules();
     if (!url) {
-        console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift watch <url> [--interval 5]${c.reset}`);
+        console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift watch <url> [--interval 5] [--output drift-log.json]${c.reset}`);
         process.exit(1);
     }
-    const intervalSec = parseInt(flags["--interval"] ?? "5", 10);
-    console.log(`\n  ${c.cyan}${c.bold}Watching${c.reset}  ${url}`);
-    console.log(`  ${c.gray}Polling every ${intervalSec}s — Ctrl+C to stop${c.reset}\n`);
+    const intervalSec = parseInt(String(flags["--interval"] ?? "5"), 10);
+    const outputFile = flags["--output"];
+    // Accumulated log entries when --output is used
+    const driftLog = [];
+    if (!flags["--json"]) {
+        console.log(`\n  ${c.cyan}${c.bold}Watching${c.reset}  ${url}`);
+        console.log(`  ${c.gray}Polling every ${intervalSec}s — Ctrl+C to stop${c.reset}`);
+        if (outputFile) {
+            console.log(`  ${c.gray}Logging drift to: ${c.cyan}${outputFile}${c.reset}`);
+        }
+        console.log("");
+    }
     let pollCount = 0;
     async function poll() {
         pollCount++;
         const ts = new Date().toLocaleTimeString();
-        process.stdout.write(`  ${c.gray}[${ts}] poll #${pollCount}...${c.reset}\r`);
+        if (!flags["--json"]) {
+            process.stdout.write(`  ${c.gray}[${ts}] poll #${pollCount}...${c.reset}\r`);
+        }
         let body;
         try {
             body = await fetchJson(url);
         }
         catch (err) {
-            process.stdout.write(`  ${c.red}[${ts}] fetch failed: ${err.message}${c.reset}\n`);
+            const msg = `fetch failed: ${err.message}`;
+            if (!flags["--json"]) {
+                process.stdout.write(`  ${c.red}[${ts}] ${msg}${c.reset}\n`);
+            }
+            if (outputFile) {
+                driftLog.push({ timestamp: new Date().toISOString(), poll: pollCount, error: msg });
+                fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
+            }
             return;
         }
         const newSchema = extractTopLevelSchema(body);
         const existing = getSnapshot(url);
         if (!existing) {
             saveSnapshot(url, newSchema);
-            console.log(`  ${c.green}[${ts}]${c.reset} Baseline captured (${Object.keys(newSchema).length} fields)`);
+            if (!flags["--json"]) {
+                console.log(`  ${c.green}[${ts}]${c.reset} Baseline captured (${Object.keys(newSchema).length} fields)`);
+            }
+            if (outputFile) {
+                driftLog.push({ timestamp: new Date().toISOString(), poll: pollCount, event: "baseline_captured", fieldCount: Object.keys(newSchema).length });
+                fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
+            }
             return;
         }
         const result = diffSchemas(url, existing.schema, newSchema);
         if (result.hasChanges) {
-            process.stdout.write("\n");
-            reportDrift(result);
+            if (flags["--json"]) {
+                process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+            }
+            else {
+                process.stdout.write("\n");
+                reportDrift(result);
+            }
             saveSnapshot(url, newSchema);
+            if (outputFile) {
+                driftLog.push(result);
+                fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
+            }
         }
         else {
-            process.stdout.write(`  ${c.gray}[${ts}] poll #${pollCount} — ${c.green}no drift${c.reset}       \r`);
+            if (!flags["--json"]) {
+                process.stdout.write(`  ${c.gray}[${ts}] poll #${pollCount} — ${c.green}no drift${c.reset}       \r`);
+            }
         }
     }
     await poll();
     const timer = setInterval(poll, intervalSec * 1000);
     process.on("SIGINT", () => {
         clearInterval(timer);
-        console.log(`\n\n  ${c.gray}Watch stopped. Run ${c.cyan}apidrift list${c.gray} to see all endpoints.${c.reset}\n`);
+        if (!flags["--json"]) {
+            console.log(`\n\n  ${c.gray}Watch stopped. Run ${c.cyan}apidrift list${c.gray} to see all endpoints.${c.reset}\n`);
+        }
+        if (outputFile && driftLog.length > 0) {
+            fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
+            if (!flags["--json"]) {
+                console.log(`  ${c.gray}Drift log saved to: ${c.cyan}${outputFile}${c.reset}\n`);
+            }
+        }
         process.exit(0);
     });
 }
-async function cmdHistory(endpoint) {
+async function cmdHistory(endpoint, flags = {}) {
     const { getHistory, getAllHistory } = await getModules();
     if (!endpoint) {
-        // Show summary of all endpoints with history
         const all = getAllHistory();
         const entries = Object.values(all.history);
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify(all, null, 2) + "\n");
+            return;
+        }
         if (entries.length === 0) {
             console.log(`\n  ${c.yellow}No history yet.${c.reset}\n`);
             return;
@@ -309,6 +488,10 @@ async function cmdHistory(endpoint) {
         return;
     }
     const hist = getHistory(endpoint);
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(hist, null, 2) + "\n");
+        return;
+    }
     if (!hist || hist.entries.length === 0) {
         console.log(`\n  ${c.yellow}No history for:${c.reset} ${endpoint}\n`);
         return;
@@ -346,11 +529,16 @@ async function cmdHistory(endpoint) {
     }
     console.log("");
 }
-async function cmdCheck() {
+async function cmdCheck(flags = {}) {
     const { listSnapshots, getAllHistory } = await getModules();
     const snapshots = listSnapshots();
     if (snapshots.length === 0) {
-        console.log(`\n  ${c.yellow}⚠  No snapshots found.${c.reset} Run your app first to capture baselines.\n`);
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ clean: true, message: "No snapshots found" }, null, 2) + "\n");
+        }
+        else {
+            console.log(`\n  ${c.yellow}⚠  No snapshots found.${c.reset} Run your app first to capture baselines.\n`);
+        }
         return 0;
     }
     const all = getAllHistory();
@@ -366,6 +554,15 @@ async function cmdCheck() {
             if (entry.changes.length > 0)
                 totalDrifts++;
         }
+    }
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify({
+            clean: totalBreaking === 0,
+            endpoints: snapshots.length,
+            driftEvents: totalDrifts,
+            breakingChanges: totalBreaking,
+        }, null, 2) + "\n");
+        return totalBreaking > 0 ? 1 : 0;
     }
     console.log(`\n  ${c.bold}apidrift check${c.reset}\n`);
     console.log(`  ${c.gray}Endpoints tracked:${c.reset}  ${snapshots.length}`);
@@ -409,7 +606,6 @@ async function cmdClear(endpoint) {
         console.log(`\n  ${c.green}✔${c.reset} Cleared snapshot and history for:\n  ${c.cyan}${endpoint}${c.reset}\n`);
     }
     else {
-        // Confirm
         const args = process.argv.slice(2);
         if (!args.includes("--yes") && !args.includes("-y")) {
             console.log(`\n  ${c.yellow}This will clear ALL snapshots and history.${c.reset}`);
@@ -421,7 +617,7 @@ async function cmdClear(endpoint) {
         console.log(`\n  ${c.green}✔${c.reset} All snapshots and history cleared.\n`);
     }
 }
-async function cmdCompare(file1, file2) {
+async function cmdCompare(file1, file2, flags = {}) {
     const { compare, reportDrift } = await getModules();
     if (!file1 || !file2) {
         console.error(`  ${c.red}Error:${c.reset} Two files required\n  Usage: ${c.cyan}apidrift compare <old.json> <new.json>${c.reset}`);
@@ -444,6 +640,11 @@ async function cmdCompare(file1, file2) {
     }
     const label = `${path.basename(file1)} → ${path.basename(file2)}`;
     const result = compare(label, body1, body2);
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+        process.exit(result.hasBreaking ? 1 : 0);
+        return;
+    }
     if (!result.hasChanges) {
         console.log(`\n  ${c.green}✔ Identical schemas.${c.reset} No differences found.\n`);
     }
@@ -471,10 +672,14 @@ async function cmdLock(url) {
     console.log(`  ${c.gray}  ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked → saved to ${c.cyan}apidrift.contract.json${c.reset}`);
     console.log(`\n  ${c.gray}Any deviation from this schema will trigger a contract violation.${c.reset}\n`);
 }
-async function cmdContracts() {
+async function cmdContracts(flags = {}) {
     const { loadContracts } = await getModules();
     const store = loadContracts();
     const entries = Object.entries(store.contracts);
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(store, null, 2) + "\n");
+        return;
+    }
     if (entries.length === 0) {
         console.log(`\n  ${c.yellow}No contracts defined.${c.reset}`);
         console.log(`  Use ${c.cyan}apidrift lock <url>${c.reset} to lock a schema as a contract.\n`);
@@ -487,7 +692,7 @@ async function cmdContracts() {
         console.log(`  ${c.gray}     ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked${c.reset}\n`);
     }
 }
-async function cmdInspect(url) {
+async function cmdInspect(url, flags = {}) {
     const { getSnapshot, getHistory, getContract } = await getModules();
     if (!url) {
         console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift inspect <url>${c.reset}`);
@@ -495,15 +700,32 @@ async function cmdInspect(url) {
     }
     const snap = getSnapshot(url);
     if (!snap) {
-        console.log(`\n  ${c.yellow}No snapshot for:${c.reset} ${url}\n`);
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ error: "No snapshot found", endpoint: url }, null, 2) + "\n");
+        }
+        else {
+            console.log(`\n  ${c.yellow}No snapshot for:${c.reset} ${url}\n`);
+        }
         process.exit(0);
     }
     const hist = getHistory(url);
     const contract = getContract(url);
     const versions = hist?.entries.length ?? 1;
     const drifts = Math.max(0, versions - 1);
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify({
+            endpoint: url,
+            responseCount: snap.responseCount,
+            capturedAt: snap.capturedAt,
+            versions,
+            driftEvents: drifts,
+            hasContract: !!contract,
+            schema: snap.schema,
+            history: hist,
+        }, null, 2) + "\n");
+        return;
+    }
     console.log(`\n  ${c.bold}${c.cyan}${truncate(url, 70)}${c.reset}\n`);
-    // Stats
     console.log(`  ${c.bold}Stats${c.reset}`);
     console.log(`  ${c.gray}  Seen:        ${c.reset}${snap.responseCount} times`);
     console.log(`  ${c.gray}  Last seen:   ${c.reset}${relativeTime(snap.capturedAt)}`);
@@ -511,7 +733,6 @@ async function cmdInspect(url) {
     console.log(`  ${c.gray}  Drift events:${c.reset}${drifts}`);
     console.log(`  ${c.gray}  Contract:    ${c.reset}${contract ? `${c.green}locked${c.reset}` : `${c.gray}none${c.reset}`}`);
     console.log("");
-    // Schema
     console.log(`  ${c.bold}Current Schema${c.reset}  ${c.gray}(${Object.keys(snap.schema).length} fields)${c.reset}`);
     for (const [field, node] of Object.entries(snap.schema)) {
         const opt = node.optional ? c.gray + "?" + c.reset : "";
@@ -540,7 +761,365 @@ async function cmdGenerateMiddleware(framework) {
     console.log(`\n  ${c.green}✔${c.reset} Generated ${c.cyan}${filename}${c.reset}`);
     console.log(`  ${c.gray}Add it to your ${fw === "fastapi" ? "FastAPI" : "Django"} app — instructions are in the file.${c.reset}\n`);
 }
+// ─── New Commands ────────────────────────────────────────────────────────────
+/**
+ * apidrift export
+ *
+ * Dumps all snapshots as proper JSON Schema (draft-07) or as an OpenAPI 3.0
+ * paths fragment. Developers use this to bootstrap specs from real traffic
+ * rather than writing them by hand.
+ *
+ * Usage:
+ *   apidrift export                        # JSON Schema to stdout
+ *   apidrift export --format openapi       # OpenAPI fragment to stdout
+ *   apidrift export --output schema.json   # write to file
+ */
+async function cmdExport(flags) {
+    const { listSnapshots } = await getModules();
+    const snapshots = listSnapshots();
+    if (snapshots.length === 0) {
+        console.error(`  ${c.yellow}No snapshots found.${c.reset} Start your app to capture API shapes first.`);
+        process.exit(1);
+    }
+    const format = String(flags["--format"] ?? "json-schema").toLowerCase();
+    const outputFile = flags["--output"];
+    let output;
+    if (format === "openapi") {
+        output = exportAsOpenAPI(snapshots);
+    }
+    else {
+        output = exportAsJsonSchema(snapshots);
+    }
+    if (outputFile) {
+        const dir = path.dirname(outputFile);
+        if (dir && !fs.existsSync(dir))
+            fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(outputFile, output, "utf-8");
+        if (!flags["--json"]) {
+            console.log(`\n  ${c.green}✔${c.reset} Exported ${snapshots.length} schema${snapshots.length === 1 ? "" : "s"} to ${c.cyan}${outputFile}${c.reset}`);
+            console.log(`  ${c.gray}Format: ${format}${c.reset}\n`);
+        }
+    }
+    else {
+        process.stdout.write(output + "\n");
+    }
+}
+function schemaNodeToJsonSchema(node) {
+    switch (node.type) {
+        case "string": return node.nullable ? { type: ["string", "null"] } : { type: "string" };
+        case "number": return node.nullable ? { type: ["number", "null"] } : { type: "number" };
+        case "boolean": return node.nullable ? { type: ["boolean", "null"] } : { type: "boolean" };
+        case "null": return { type: "null" };
+        case "unknown": return {};
+        case "array": {
+            const base = { type: "array" };
+            if (node.items)
+                base.items = schemaNodeToJsonSchema(node.items);
+            if (node.nullable)
+                return { oneOf: [base, { type: "null" }] };
+            return base;
+        }
+        case "object": {
+            const props = {};
+            const required = [];
+            for (const [key, child] of Object.entries(node.children ?? {})) {
+                props[key] = schemaNodeToJsonSchema(child);
+                if (!child.optional)
+                    required.push(key);
+            }
+            const base = { type: "object", properties: props };
+            if (required.length > 0)
+                base.required = required;
+            if (node.nullable)
+                return { oneOf: [base, { type: "null" }] };
+            return base;
+        }
+        default: return {};
+    }
+}
+function exportAsJsonSchema(snapshots) {
+    const definitions = {};
+    for (const snap of snapshots) {
+        const key = snap.endpoint.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^_+|_+$/g, "");
+        const props = {};
+        const required = [];
+        for (const [field, node] of Object.entries(snap.schema)) {
+            props[field] = schemaNodeToJsonSchema(node);
+            if (!node.optional)
+                required.push(field);
+        }
+        definitions[key] = {
+            $id: snap.endpoint,
+            type: "object",
+            title: snap.endpoint,
+            description: `Generated by apidrift from ${snap.responseCount} response(s). Last seen: ${snap.capturedAt}`,
+            properties: props,
+            ...(required.length > 0 ? { required } : {}),
+        };
+    }
+    return JSON.stringify({
+        $schema: "http://json-schema.org/draft-07/schema#",
+        title: "apidrift — exported schemas",
+        description: `Generated by apidrift on ${new Date().toISOString()}`,
+        definitions,
+    }, null, 2);
+}
+function exportAsOpenAPI(snapshots) {
+    const paths = {};
+    for (const snap of snapshots) {
+        let urlPath = snap.endpoint;
+        try {
+            urlPath = new URL(snap.endpoint).pathname;
+        }
+        catch { /* relative URL — use as-is */ }
+        const props = {};
+        const required = [];
+        for (const [field, node] of Object.entries(snap.schema)) {
+            props[field] = schemaNodeToJsonSchema(node);
+            if (!node.optional)
+                required.push(field);
+        }
+        paths[urlPath] = {
+            get: {
+                summary: `${snap.endpoint}`,
+                description: `Tracked by apidrift. Seen ${snap.responseCount} time(s). Last: ${snap.capturedAt}`,
+                responses: {
+                    "200": {
+                        description: "Successful response",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: props,
+                                    ...(required.length > 0 ? { required } : {}),
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    }
+    return JSON.stringify({
+        openapi: "3.0.3",
+        info: {
+            title: "apidrift — exported API schemas",
+            version: "1.0.0",
+            description: `Generated by apidrift on ${new Date().toISOString()}`,
+        },
+        paths,
+    }, null, 2);
+}
+/**
+ * apidrift replay <endpoint> <v1> <v2>
+ *
+ * Re-runs the diff between any two historical versions of an endpoint.
+ * The history data is already stored — this command just queries it.
+ *
+ * Usage:
+ *   apidrift replay https://api.example.com/users 2 4
+ *   apidrift replay https://api.example.com/users 2 4 --json
+ */
+async function cmdReplay(endpoint, v1Str, v2Str, flags) {
+    const { getHistory, diffSchemas, reportDrift } = await getModules();
+    if (!endpoint || !v1Str || !v2Str) {
+        console.error(`  ${c.red}Error:${c.reset} endpoint and two version numbers required`);
+        console.error(`  Usage: ${c.cyan}apidrift replay <endpoint> <v1> <v2>${c.reset}`);
+        process.exit(1);
+    }
+    const hist = getHistory(endpoint);
+    if (!hist || hist.entries.length === 0) {
+        console.error(`\n  ${c.red}No history for:${c.reset} ${endpoint}\n`);
+        process.exit(1);
+    }
+    const v1 = parseInt(v1Str, 10);
+    const v2 = parseInt(v2Str, 10);
+    if (isNaN(v1) || isNaN(v2)) {
+        console.error(`  ${c.red}Error:${c.reset} Version numbers must be integers (e.g. 1, 2, 3)`);
+        process.exit(1);
+    }
+    const maxV = hist.entries.length;
+    if (v1 < 1 || v1 > maxV || v2 < 1 || v2 > maxV) {
+        console.error(`  ${c.red}Error:${c.reset} Version numbers must be between 1 and ${maxV}`);
+        console.error(`  ${c.gray}Run ${c.cyan}apidrift history ${endpoint}${c.gray} to see available versions.${c.reset}`);
+        process.exit(1);
+    }
+    if (v1 === v2) {
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ endpoint, v1, v2, hasChanges: false, changes: [] }, null, 2) + "\n");
+        }
+        else {
+            console.log(`\n  ${c.green}✔ Same version.${c.reset} No differences.\n`);
+        }
+        return;
+    }
+    const entry1 = hist.entries[v1 - 1];
+    const entry2 = hist.entries[v2 - 1];
+    const result = diffSchemas(endpoint, entry1.schema, entry2.schema);
+    // Augment result with version metadata
+    const augmented = {
+        ...result,
+        fromVersion: v1,
+        toVersion: v2,
+        fromTimestamp: entry1.timestamp,
+        toTimestamp: entry2.timestamp,
+    };
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify(augmented, null, 2) + "\n");
+        return;
+    }
+    console.log(`\n  ${c.bold}Replay:${c.reset} ${c.cyan}${truncate(endpoint, 55)}${c.reset}`);
+    console.log(`  ${c.gray}Comparing v${v1} (${relativeTime(entry1.timestamp)}) → v${v2} (${relativeTime(entry2.timestamp)})${c.reset}\n`);
+    if (!result.hasChanges) {
+        console.log(`  ${c.green}✔ No differences${c.reset} between v${v1} and v${v2}.\n`);
+    }
+    else {
+        reportDrift(result);
+    }
+}
+/**
+ * apidrift stats
+ *
+ * Shows which endpoints change most frequently, which have the most breaking
+ * changes, and the average stability score across the project. Useful for
+ * identifying your most unstable APIs at a glance.
+ *
+ * Usage:
+ *   apidrift stats
+ *   apidrift stats --json
+ */
+async function cmdStats(flags) {
+    const { listSnapshots, getAllHistory } = await getModules();
+    const snapshots = listSnapshots();
+    if (snapshots.length === 0) {
+        if (flags["--json"]) {
+            process.stdout.write(JSON.stringify({ endpoints: [] }, null, 2) + "\n");
+        }
+        else {
+            console.log(`\n  ${c.yellow}No endpoints tracked yet.${c.reset}\n`);
+        }
+        return;
+    }
+    const all = getAllHistory();
+    const stats = snapshots.map(snap => {
+        const hist = all.history[snap.endpoint];
+        const entries = hist?.entries ?? [];
+        const versions = entries.length;
+        let driftEvents = 0;
+        let breakingChanges = 0;
+        let nonBreakingChanges = 0;
+        for (const entry of entries) {
+            if (entry.changes.length > 0)
+                driftEvents++;
+            for (const ch of entry.changes) {
+                if (ch.impact === "BREAKING")
+                    breakingChanges++;
+                else if (ch.impact === "NON_BREAKING")
+                    nonBreakingChanges++;
+            }
+        }
+        // Stability score: 100 = never drifted, penalise breaking changes more
+        const driftPenalty = driftEvents * 5;
+        const breakingPenalty = breakingChanges * 15;
+        const stabilityScore = Math.max(0, 100 - driftPenalty - breakingPenalty);
+        return {
+            endpoint: snap.endpoint,
+            responseCount: snap.responseCount,
+            versions,
+            driftEvents,
+            breakingChanges,
+            nonBreakingChanges,
+            stabilityScore,
+            lastSeen: snap.capturedAt,
+        };
+    });
+    // Sort by stability score ascending (most unstable first)
+    stats.sort((a, b) => a.stabilityScore - b.stabilityScore);
+    const totalBreaking = stats.reduce((s, e) => s + e.breakingChanges, 0);
+    const avgStability = stats.reduce((s, e) => s + e.stabilityScore, 0) / stats.length;
+    if (flags["--json"]) {
+        process.stdout.write(JSON.stringify({
+            summary: {
+                totalEndpoints: stats.length,
+                totalBreakingChanges: totalBreaking,
+                averageStabilityScore: parseFloat(avgStability.toFixed(1)),
+            },
+            endpoints: stats,
+        }, null, 2) + "\n");
+        return;
+    }
+    console.log(`\n  ${c.bold}API Stability Stats${c.reset}  ${c.gray}(${stats.length} endpoints)${c.reset}\n`);
+    // Summary row
+    console.log(`  ${c.gray}Total breaking changes:${c.reset}  ${totalBreaking > 0 ? c.red : c.green}${totalBreaking}${c.reset}`);
+    console.log(`  ${c.gray}Avg stability score:${c.reset}     ${avgStability >= 80 ? c.green : avgStability >= 50 ? c.yellow : c.red}${avgStability.toFixed(1)}/100${c.reset}`);
+    console.log("");
+    // Per-endpoint table
+    const header = `  ${"Endpoint".padEnd(50)} ${"Seen".padStart(5)} ${"Drifts".padStart(7)} ${"Breaking".padStart(9)} ${"Score".padStart(6)}`;
+    console.log(`${c.bold}${header}${c.reset}`);
+    console.log(`  ${"─".repeat(80)}`);
+    for (const stat of stats) {
+        const ep = truncate(stat.endpoint, 48);
+        const scoreColor = stat.stabilityScore >= 80 ? c.green : stat.stabilityScore >= 50 ? c.yellow : c.red;
+        const breakColor = stat.breakingChanges > 0 ? c.red : c.gray;
+        console.log(`  ${c.cyan}${ep.padEnd(50)}${c.reset}` +
+            ` ${String(stat.responseCount).padStart(5)}` +
+            ` ${String(stat.driftEvents).padStart(7)}` +
+            ` ${breakColor}${String(stat.breakingChanges).padStart(9)}${c.reset}` +
+            ` ${scoreColor}${String(stat.stabilityScore).padStart(6)}${c.reset}`);
+    }
+    console.log("");
+}
 // ─── Help ───────────────────────────────────────────────────────────────────
+async function cmdCiGen() {
+    const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+    const path = await Promise.resolve().then(() => __importStar(require('path')));
+    const workflowDir = path.join(process.cwd(), '.github', 'workflows');
+    const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
+    const yaml = `name: apidrift-check
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  api-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run apidrift check
+        run: |
+          # Ensure apidrift is installed (either as dependency or global)
+          # If not in package.json, we can run it via npx
+          npx apidrift check --json
+        env:
+          APIDRIFT_CI: 1
+`;
+    if (!fs.existsSync(workflowDir)) {
+        fs.mkdirSync(workflowDir, { recursive: true });
+    }
+    fs.writeFileSync(workflowFile, yaml, "utf-8");
+    console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
+    console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
+}
+async function cmdReport(flags = {}) {
+    const { generateHtmlReport } = await getModules();
+    const outputPath = flags["--output"] || "apidrift-report.html";
+    await generateHtmlReport(outputPath);
+    console.log(`\n  ${c.green}✔  HTML Report generated:${c.reset} ${outputPath}`);
+    console.log(`  ${c.gray}Open this file in your browser to view the API drift dashboard.${c.reset}\n`);
+}
 function printHelp() {
     console.log(BANNER);
     console.log(`  ${c.bold}COMMANDS${c.reset}\n`);
@@ -548,10 +1127,14 @@ function printHelp() {
         ["init", "Initialize apidrift in current project"],
         ["list", "List all tracked endpoints"],
         ["diff <url>", "Fetch URL and diff against saved snapshot"],
+        ["diff <url> --watch-file", "Watch snapshots.json for offline, zero-latency diffs"],
         ["watch <url>", "Poll URL and report drift in real-time"],
         ["history [url]", "Show drift timeline for an endpoint"],
+        ["replay <url> <v1> <v2>", "Diff two historical versions of an endpoint"],
+        ["stats", "Stability scores and drift frequency for all endpoints"],
+        ["export", "Export all schemas as JSON Schema or OpenAPI fragment"],
         ["inspect <url>", "Deep-inspect a tracked endpoint"],
-        ["compare <f1> <f2>", "Diff two JSON files"],
+        ["compare <f1> <f2>", "Diff two local JSON files"],
         ["types [output]", "Generate TypeScript types from snapshots"],
         ["lock <url>", "Lock current schema as a contract"],
         ["contracts", "List all locked contracts"],
@@ -561,13 +1144,17 @@ function printHelp() {
         ["generate-middleware <fastapi|django>", "Generate server-side middleware code"],
     ];
     for (const [cmd, desc] of cmds) {
-        const padded = cmd.padEnd(22);
+        const padded = cmd.padEnd(30);
         console.log(`  ${c.cyan}apidrift ${padded}${c.reset}${c.gray}${desc}${c.reset}`);
     }
     console.log(`\n  ${c.bold}OPTIONS${c.reset}\n`);
-    console.log(`  ${c.cyan}--help, -h    ${c.reset}${c.gray}Show this help${c.reset}`);
-    console.log(`  ${c.cyan}--version, -v ${c.reset}${c.gray}Show version${c.reset}`);
-    console.log(`  ${c.cyan}--verbose     ${c.reset}${c.gray}Extra output${c.reset}`);
+    console.log(`  ${c.cyan}--help, -h         ${c.reset}${c.gray}Show this help${c.reset}`);
+    console.log(`  ${c.cyan}--version, -v      ${c.reset}${c.gray}Show version${c.reset}`);
+    console.log(`  ${c.cyan}--verbose          ${c.reset}${c.gray}Extra output${c.reset}`);
+    console.log(`  ${c.cyan}--json             ${c.reset}${c.gray}Machine-readable JSON output (works on most commands)${c.reset}`);
+    console.log(`  ${c.cyan}--output <file>    ${c.reset}${c.gray}Write output to file (watch, export)${c.reset}`);
+    console.log(`  ${c.cyan}--format <fmt>     ${c.reset}${c.gray}Export format: json-schema (default) or openapi${c.reset}`);
+    console.log(`  ${c.cyan}--interval <secs>  ${c.reset}${c.gray}Polling interval for watch (default: 5)${c.reset}`);
     console.log(`\n  ${c.bold}ENV VARS${c.reset}\n`);
     console.log(`  ${c.cyan}APIDRIFT_VERBOSE=1  ${c.reset}${c.gray}Log all tracked endpoints${c.reset}`);
     console.log(`  ${c.cyan}APIDRIFT_SILENT=1   ${c.reset}${c.gray}Suppress all output${c.reset}`);
@@ -578,6 +1165,16 @@ function printHelp() {
     console.log(`  ${c.cyan}import "apidrift/register"${c.reset}\n`);
     console.log(`  ${c.gray}# Watch a live endpoint:${c.reset}`);
     console.log(`  ${c.cyan}apidrift watch https://api.github.com/users/octocat${c.reset}\n`);
+    console.log(`  ${c.gray}# Watch with output log for CI/alerting:${c.reset}`);
+    console.log(`  ${c.cyan}apidrift watch https://api.example.com/users --output drift-log.json${c.reset}\n`);
+    console.log(`  ${c.gray}# Machine-readable diff for scripting:${c.reset}`);
+    console.log(`  ${c.cyan}apidrift diff https://api.example.com/users --json | jq .changes${c.reset}\n`);
+    console.log(`  ${c.gray}# Replay what changed between v2 and v4:${c.reset}`);
+    console.log(`  ${c.cyan}apidrift replay https://api.example.com/users 2 4${c.reset}\n`);
+    console.log(`  ${c.gray}# Export schemas to bootstrap an OpenAPI spec:${c.reset}`);
+    console.log(`  ${c.cyan}apidrift export --format openapi --output openapi.json${c.reset}\n`);
+    console.log(`  ${c.gray}# See which endpoints are most unstable:${c.reset}`);
+    console.log(`  ${c.cyan}apidrift stats${c.reset}\n`);
     console.log(`  ${c.gray}# Generate types from real responses:${c.reset}`);
     console.log(`  ${c.cyan}apidrift types src/types/api.generated.ts${c.reset}\n`);
     console.log(`  ${c.gray}# Lock contract + enforce in CI:${c.reset}`);
@@ -588,7 +1185,7 @@ function printHelp() {
 async function main() {
     const args = process.argv.slice(2);
     const command = args[0];
-    // Parse flags
+    // Parse flags — supports both --flag and --flag value forms
     const flags = {};
     for (let i = 1; i < args.length; i++) {
         if (args[i].startsWith("--")) {
@@ -602,7 +1199,6 @@ async function main() {
             }
         }
     }
-    const positional = args.filter((a, i) => i > 0 && !a.startsWith("--") && args[i - 1]?.startsWith("--") === false);
     if (!command || command === "--help" || command === "-h") {
         printHelp();
         return;
@@ -616,7 +1212,7 @@ async function main() {
             await cmdInit();
             break;
         case "list":
-            await cmdList();
+            await cmdList(flags);
             break;
         case "diff":
             await cmdDiff(args[1], flags);
@@ -625,13 +1221,22 @@ async function main() {
             await cmdWatch(args[1], flags);
             break;
         case "history":
-            await cmdHistory(args[1]);
+            await cmdHistory(args[1], flags);
+            break;
+        case "replay":
+            await cmdReplay(args[1], args[2], args[3], flags);
+            break;
+        case "stats":
+            await cmdStats(flags);
+            break;
+        case "export":
+            await cmdExport(flags);
             break;
         case "inspect":
-            await cmdInspect(args[1]);
+            await cmdInspect(args[1], flags);
             break;
         case "compare":
-            await cmdCompare(args[1], args[2]);
+            await cmdCompare(args[1], args[2], flags);
             break;
         case "types":
             await cmdTypes(args[1]);
@@ -640,10 +1245,16 @@ async function main() {
             await cmdLock(args[1]);
             break;
         case "contracts":
-            await cmdContracts();
+            await cmdContracts(flags);
+            break;
+        case "report":
+            await cmdReport(flags);
+            break;
+        case "ci-gen":
+            await cmdCiGen();
             break;
         case "check": {
-            const code = await cmdCheck();
+            const code = await cmdCheck(flags);
             process.exit(code);
             break;
         }

@@ -1,9 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportDrift = reportDrift;
 exports.reportFirstSeen = reportFirstSeen;
 exports.reportNoDrift = reportNoDrift;
 exports.ciReport = ciReport;
+exports.generateHtmlReport = generateHtmlReport;
 // ANSI color codes — works in Node.js terminals
 const c = {
     reset: "\x1b[0m",
@@ -131,5 +165,184 @@ function ciReport(results) {
     }
     console.log(`\n${c.green}✔ No API drift detected.${c.reset}\n`);
     return 0;
+}
+/**
+ * Generate a beautiful, interactive static HTML report.
+ */
+async function generateHtmlReport(outputPath) {
+    const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+    const { listSnapshots } = await Promise.resolve().then(() => __importStar(require('./storage.js')));
+    const { getAllHistory } = await Promise.resolve().then(() => __importStar(require('./history.js')));
+    const snapshots = listSnapshots();
+    const history = getAllHistory();
+    const data = {
+        snapshots,
+        history,
+        generatedAt: new Date().toISOString(),
+    };
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>apidrift | API Drift Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        pre, code { font-family: 'Fira Code', monospace; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="flex justify-between items-center mb-12">
+            <div>
+                <h1 class="text-4xl font-extrabold tracking-tight text-cyan-600">apidrift</h1>
+                <p class="text-gray-500 mt-2">API Change Intelligence Dashboard</p>
+            </div>
+            <div class="text-right">
+                <div class="text-sm font-medium text-gray-400 uppercase tracking-wider">Report Generated</div>
+                <div class="text-lg font-semibold">${new Date(data.generatedAt).toLocaleString()}</div>
+            </div>
+        </header>
+
+        <main>
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="text-sm font-medium text-gray-400 uppercase mb-1">Tracked Endpoints</div>
+                    <div class="text-3xl font-bold text-gray-800">${snapshots.length}</div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="text-sm font-medium text-gray-400 uppercase mb-1">Total Drift Events</div>
+                    <div class="text-3xl font-bold text-gray-800">${Object.values(history.history).reduce((acc, h) => acc + Math.max(0, h.entries.length - 1), 0)}</div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="text-sm font-medium text-gray-400 uppercase mb-1">Breaking Changes</div>
+                    <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0), 0)}</div>
+                </div>
+            </section>
+
+            <section class="space-y-8">
+                <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
+                ${snapshots.map((s, idx) => {
+        const h = history.history[s.endpoint] || { entries: [] };
+        const breakingCount = h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0);
+        const stabilityScore = Math.max(0, 100 - (h.entries.length - 1) * 5 - breakingCount * 15);
+        return `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-6 border-b border-gray-50 flex justify-between items-start">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-lg font-bold text-cyan-600 truncate mb-1" title="${s.endpoint}">${s.endpoint}</h3>
+                                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                    <span>${Object.keys(s.schema).length} fields</span>
+                                    <span>${s.responseCount} responses</span>
+                                    <span>Last seen ${new Date(s.capturedAt).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex items-center space-x-4">
+                                <div class="text-right">
+                                    <div class="text-xs font-medium text-gray-400 uppercase">Stability</div>
+                                    <div class="text-lg font-bold ${stabilityScore > 80 ? 'text-green-500' : stabilityScore > 50 ? 'text-yellow-500' : 'text-red-500'}">${stabilityScore}%</div>
+                                </div>
+                                <button onclick="toggleDetails('details-${idx}')" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold transition-colors">Details</button>
+                            </div>
+                        </div>
+
+                        <div id="details-${idx}" class="hidden p-6 bg-gray-50 border-t border-gray-100">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Schema Evolution</h4>
+                                    <canvas id="chart-${idx}" class="w-full h-48"></canvas>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Change History</h4>
+                                    <div class="space-y-4 max-h-80 overflow-y-auto pr-2">
+                                        ${h.entries.slice().reverse().map((e, vIdx) => {
+            const vNum = h.entries.length - vIdx;
+            return `
+                                            <div class="relative pl-6 pb-2 border-l-2 ${e.changes.some(c => c.impact === 'BREAKING') ? 'border-red-200' : 'border-gray-200'}">
+                                                <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full ${e.changes.some(c => c.impact === 'BREAKING') ? 'bg-red-400' : 'bg-gray-300'} border-2 border-white"></div>
+                                                <div class="flex justify-between items-baseline mb-1">
+                                                    <span class="font-bold text-sm">Version ${vNum}</span>
+                                                    <span class="text-xs text-gray-400">${new Date(e.timestamp).toLocaleString()}</span>
+                                                </div>
+                                                ${e.changes.length === 0 ? '<p class="text-xs text-gray-400 italic">Initial baseline captured</p>' : ''}
+                                                <ul class="space-y-1">
+                                                    ${e.changes.map(c => `
+                                                        <li class="text-xs flex items-start">
+                                                            <span class="mr-2 ${c.impact === 'BREAKING' ? 'text-red-500' : 'text-yellow-500'} font-bold">${c.impact === 'BREAKING' ? '✖' : '△'}</span>
+                                                            <span class="text-gray-600">
+                                                                <code class="bg-gray-100 px-1 rounded">${c.path}</code>: ${c.description}
+                                                            </span>
+                                                        </li>
+                                                    `).join('')}
+                                                </ul>
+                                            </div>
+                                            `;
+        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+    }).join('')}
+            </section>
+        </main>
+
+        <footer class="mt-16 pt-8 border-t border-gray-200 text-center text-gray-400 text-sm">
+            Powered by <span class="font-bold text-cyan-600">apidrift</span> &middot; Zero-Config API Intelligence
+        </footer>
+    </div>
+
+    <script>
+        const appData = ${JSON.stringify(data)};
+
+        function toggleDetails(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle('hidden');
+            if (!el.classList.contains('hidden')) {
+                const idx = id.split('-')[1];
+                renderChart(idx);
+            }
+        }
+
+        function renderChart(idx) {
+            const canvasId = 'chart-' + idx;
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const h = appData.history.history[appData.snapshots[idx].endpoint];
+
+            if (window['chart_obj_' + idx]) return;
+
+            window['chart_obj_' + idx] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: h.entries.map((_, i) => 'v' + (i + 1)),
+                    datasets: [{
+                        label: 'Field Count',
+                        data: h.entries.map(e => Object.keys(e.schema).length),
+                        borderColor: '#0891b2',
+                        backgroundColor: '#0891b222',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+  `.trim();
+    fs.writeFileSync(outputPath, html, 'utf-8');
 }
 //# sourceMappingURL=reporter.js.map

@@ -7,4 +7,8 @@ export declare function reportNoDrift(endpoint: string): void;
  * Returns 1 if any breaking changes exist.
  */
 export declare function ciReport(results: DriftResult[]): number;
+/**
+ * Generate a beautiful, interactive static HTML report.
+ */
+export declare function generateHtmlReport(outputPath: string): Promise<void>;
 //# sourceMappingURL=reporter.d.ts.map

@@ -102,6 +102,12 @@ apidrift compare old.json new.json        # diff two local JSON files
 apidrift check                            # CI mode which exits 1 on breaking drift
 apidrift clear                            # reset all snapshots
 apidrift dashboard                        # interactive terminal UI
+apidrift export                           # export schemas as JSON Schema or OpenAPI
+apidrift replay <url> <v1> <v2>           # diff two historical versions
+apidrift stats                            # stability scores and drift frequency
+apidrift report                           # generate interactive HTML report
+apidrift ci-gen                           # generate GitHub Actions workflow
+apidrift generate-middleware <fw>         # generate FastAPI/Django middleware
 ```
 
 ---

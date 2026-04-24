@@ -68,7 +68,39 @@ assert(s1.name?.type   === "string",  "string field");
 assert(s1.active?.type === "boolean", "boolean field");
 assert(s1.score?.type  === "null",    "null field");
 
-// ... ✅ ALL YOUR REMAINING CODE CONTINUES UNCHANGED ...
+describe("Diffing — enums and patterns");
+const { diffSchemas } = m("core/diff.js");
+
+const oldSchema = {
+  status: { type: "string", enum: ["active", "inactive"] },
+  id: { type: "string", pattern: "uuid" }
+};
+const newSchema = {
+  status: { type: "string", enum: ["active", "inactive", "pending"] },
+  id: { type: "string", pattern: "email" }
+};
+
+const diff = diffSchemas("test", oldSchema, newSchema);
+assert(diff.hasChanges === true, "detects changes");
+assert(diff.changes.some(c => c.kind === "ENUM_CHANGED"), "detects ENUM_CHANGED");
+assert(diff.changes.some(c => c.kind === "PATTERN_CHANGED"), "detects PATTERN_CHANGED");
+assert(diff.hasBreaking === true, "enum change is breaking");
+
+describe("Smart Inference — enums across calls");
+const { track } = m("core/tracker.js");
+const { getSnapshot } = m("core/storage.js");
+
+const url = "https://api.test.com/status";
+track(url, { status: "active" }, { silent: true });
+track(url, { status: "inactive" }, { silent: true });
+track(url, { status: "active" }, { silent: true });
+track(url, { status: "inactive" }, { silent: true });
+track(url, { status: "active" }, { silent: true });
+
+const snap = getSnapshot(url);
+assert(snap.schema.status.enum !== undefined, "infers enum after 5 calls");
+assert(snap.schema.status.enum.includes("active"), "enum contains 'active'");
+assert(snap.schema.status.enum.includes("inactive"), "enum contains 'inactive'");
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log("\n" + "─".repeat(52));

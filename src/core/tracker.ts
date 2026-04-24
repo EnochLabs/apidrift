@@ -1,4 +1,4 @@
-import { extractTopLevelSchema } from "./schema.js";
+import { extractTopLevelSchema, mergeMetadata, SchemaNode } from "./schema.js";
 import { diffSchemas, DriftResult } from "./diff.js";
 import { getSnapshot, saveSnapshot } from "./storage.js";
 import { reportDrift, reportFirstSeen, reportNoDrift } from "./reporter.js";
@@ -56,6 +56,19 @@ export function track(
   const endpoint = options.endpointKey ?? normalizeEndpoint(url);
   const newSchema = extractTopLevelSchema(body);
   const existing = getSnapshot(endpoint);
+
+  // Merge metadata from existing schema to enable smart inference across calls
+  if (existing) {
+    for (const key of Object.keys(newSchema)) {
+      if (existing.schema[key]) {
+        mergeMetadata(newSchema[key], existing.schema[key]);
+      }
+    }
+    // Also handle root if non-object
+    if (newSchema._root && existing.schema._root) {
+      mergeMetadata(newSchema._root, existing.schema._root);
+    }
+  }
 
   // ── First time seeing this endpoint ──────────────────────────────────────
   if (!existing) {

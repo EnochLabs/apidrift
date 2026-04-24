@@ -1,0 +1,30 @@
+name: apidrift-check
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  api-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run apidrift check
+        run: |
+          # Ensure apidrift is installed (either as dependency or global)
+          # If not in package.json, we can run it via npx
+          npx apidrift check --json
+        env:
+          APIDRIFT_CI: 1

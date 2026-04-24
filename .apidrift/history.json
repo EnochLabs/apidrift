@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "history": {
+    "https://api.example.com/users": {
+      "endpoint": "https://api.example.com/users",
+      "entries": [
+        {
+          "timestamp": "2026-04-24T09:56:23.015Z",
+          "schema": {
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "children": {
+                  "id": {
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string",
+                    "_samples": [
+                      "Alice"
+                    ],
+                    "_seenCount": 1
+                  }
+                }
+              }
+            }
+          },
+          "changes": [],
+          "responseCount": 1,
+          "checksum": "99e8342"
+        }
+      ]
+    }
+  }
+}

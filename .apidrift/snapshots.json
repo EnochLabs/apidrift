@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "snapshots": {
+    "https://api.example.com/users": {
+      "endpoint": "https://api.example.com/users",
+      "schema": {
+        "users": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "children": {
+              "id": {
+                "type": "number"
+              },
+              "name": {
+                "type": "string",
+                "_samples": [
+                  "Alice"
+                ],
+                "_seenCount": 2
+              },
+              "email": {
+                "type": "string",
+                "pattern": "email",
+                "_samples": [
+                  "alice@example.com"
+                ],
+                "_seenCount": 1
+              }
+            }
+          }
+        }
+      },
+      "capturedAt": "2026-04-24T09:56:23.021Z",
+      "responseCount": 2
+    }
+  }
+}
