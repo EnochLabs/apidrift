@@ -40,6 +40,23 @@ export interface DataDriftResult {
 }
 
 /**
+ * Minimum number of samples required before any alert fires.
+ *
+ * With fewer than this many observations the running statistics (mean,
+ * variance, min/max) are too noisy to be trustworthy.  Setting this to 10
+ * eliminates the false-positive storm that developers would otherwise see
+ * during the first few requests after startup.
+ *
+ * Thresholds by detection type:
+ *   SPIKE / DROP       — requires MIN_SAMPLES_FOR_SPIKE (higher: needs stable σ)
+ *   MEAN_SHIFT         — requires MIN_SAMPLES_FOR_MEAN_SHIFT
+ *   RANGE_EXCEEDED     — requires MIN_SAMPLES_FOR_RANGE
+ */
+const MIN_SAMPLES_FOR_SPIKE = 10;       // was implicitly 5 — needs stable stddev
+const MIN_SAMPLES_FOR_MEAN_SHIFT = 10;  // was 3 — far too eager
+const MIN_SAMPLES_FOR_RANGE = 10;       // was 3 — far too eager
+
+/**
  * Extract all numeric leaf values from a JSON object, with dot-paths
  */
 export function extractNumericPaths(
@@ -115,6 +132,10 @@ export function sampleStddev(sample: NumericSample): number {
 /**
  * Compare current numeric values against baseline stats.
  * Returns alerts for significant deviations.
+ *
+ * All detection paths are gated behind MIN_SAMPLES_* thresholds so that
+ * the detector stays silent during the warm-up period and only fires once
+ * it has enough data to be statistically meaningful.
  */
 export function detectDataDrift(
   endpoint: string,
@@ -125,7 +146,13 @@ export function detectDataDrift(
 
   for (const [path, value] of Object.entries(current)) {
     const stats = baseline[path];
-    if (!stats || stats.samples.count < 3) continue; // Need enough samples
+    if (!stats) continue;
+
+    // ── Warm-up guard ────────────────────────────────────────────────────────
+    // Do not fire any alert until we have enough samples for reliable stats.
+    // This is the primary fix: previously the guard was only 3 samples which
+    // caused noisy false alerts on startup.
+    if (stats.samples.count < MIN_SAMPLES_FOR_SPIKE) continue;
 
     const { mean } = stats.samples;
     if (mean === 0) continue; // Avoid division by zero
@@ -135,7 +162,8 @@ export function detectDataDrift(
     const zScore = stddev > 0 ? Math.abs(value - mean) / stddev : 0;
 
     // Spike detection (> 2.5 standard deviations from mean)
-    if (zScore > 2.5 && stats.samples.count >= 5) {
+    // Requires MIN_SAMPLES_FOR_SPIKE so that stddev is meaningful
+    if (zScore > 2.5 && stats.samples.count >= MIN_SAMPLES_FOR_SPIKE) {
       alerts.push({
         path,
         kind: value > mean ? "SPIKE" : "DROP",
@@ -149,7 +177,7 @@ export function detectDataDrift(
     }
 
     // Mean shift detection (>40% change, enough samples)
-    if (Math.abs(changePercent) > 40 && stats.samples.count >= 3) {
+    if (Math.abs(changePercent) > 40 && stats.samples.count >= MIN_SAMPLES_FOR_MEAN_SHIFT) {
       alerts.push({
         path,
         kind: "MEAN_SHIFT",
@@ -163,20 +191,22 @@ export function detectDataDrift(
     }
 
     // Range exceeded (outside min-max envelope)
-    const rangeMargin = (stats.samples.max - stats.samples.min) * 0.1;
-    if (
-      value < stats.samples.min - rangeMargin ||
-      value > stats.samples.max + rangeMargin
-    ) {
-      alerts.push({
-        path,
-        kind: "RANGE_EXCEEDED",
-        severity: "LOW",
-        baseline: parseFloat(mean.toFixed(4)),
-        current: value,
-        changePercent: parseFloat(changePercent.toFixed(1)),
-        description: `${path}: value ${value} outside historical range [${stats.samples.min.toFixed(2)}, ${stats.samples.max.toFixed(2)}]`,
-      });
+    if (stats.samples.count >= MIN_SAMPLES_FOR_RANGE) {
+      const rangeMargin = (stats.samples.max - stats.samples.min) * 0.1;
+      if (
+        value < stats.samples.min - rangeMargin ||
+        value > stats.samples.max + rangeMargin
+      ) {
+        alerts.push({
+          path,
+          kind: "RANGE_EXCEEDED",
+          severity: "LOW",
+          baseline: parseFloat(mean.toFixed(4)),
+          current: value,
+          changePercent: parseFloat(changePercent.toFixed(1)),
+          description: `${path}: value ${value} outside historical range [${stats.samples.min.toFixed(2)}, ${stats.samples.max.toFixed(2)}]`,
+        });
+      }
     }
   }
 

@@ -5,7 +5,8 @@ export type ChangeKind =
   | "FIELD_ADDED"
   | "TYPE_CHANGED"
   | "NULLABLE_CHANGED"
-  | "OPTIONAL_CHANGED";
+  | "OPTIONAL_CHANGED"
+  | "ARRAY_ITEM_TYPE_CHANGED";
 
 export type ChangeImpact = "BREAKING" | "NON_BREAKING" | "INFO";
 
@@ -33,6 +34,7 @@ function classifyImpact(kind: ChangeKind): ChangeImpact {
   switch (kind) {
     case "FIELD_REMOVED":
     case "TYPE_CHANGED":
+    case "ARRAY_ITEM_TYPE_CHANGED":
       return "BREAKING";
     case "FIELD_ADDED":
       return "NON_BREAKING";
@@ -56,14 +58,29 @@ function formatType(node: SchemaNode): string {
 }
 
 /**
- * Recursively diff two schema nodes at a given path
+ * Determine whether a SchemaNode represents a "structural" type (object or array)
+ * vs a "primitive" type (string, number, boolean, null, unknown).
+ * Switching between these categories is always a breaking change.
+ */
+function isStructural(node: SchemaNode): boolean {
+  return node.type === "object" || node.type === "array";
+}
+
+/**
+ * Recursively diff two schema nodes at a given path.
+ * The `depth` parameter guards against runaway recursion on pathological input.
  */
 function diffNodes(
   path: string,
   oldNode: SchemaNode | undefined,
   newNode: SchemaNode | undefined,
-  changes: DriftChange[]
+  changes: DriftChange[],
+  depth = 0
 ): void {
+  // Hard guard: never recurse beyond 50 levels — prevents stack overflow on
+  // adversarially deep schemas while still covering any realistic API shape.
+  if (depth > 50) return;
+
   // Field removed
   if (oldNode && !newNode) {
     const kind: ChangeKind = "FIELD_REMOVED";
@@ -92,7 +109,7 @@ function diffNodes(
 
   if (!oldNode || !newNode) return;
 
-  // Type changed
+  // Top-level type changed
   if (oldNode.type !== newNode.type) {
     const kind: ChangeKind = "TYPE_CHANGED";
     changes.push({
@@ -132,20 +149,46 @@ function diffNodes(
         path ? `${path}.${key}` : key,
         oldChildren[key],
         newChildren[key],
-        changes
+        changes,
+        depth + 1
       );
     }
     return;
   }
 
-  // Recurse into arrays
+  // Recurse into arrays — with explicit structural-switch detection
   if (
     oldNode.type === "array" &&
     newNode.type === "array" &&
     oldNode.items &&
     newNode.items
   ) {
-    diffNodes(`${path}[]`, oldNode.items, newNode.items, changes);
+    const oldItems = oldNode.items;
+    const newItems = newNode.items;
+
+    // Detect the critical case: array switches between object items and
+    // primitive items (or vice versa). This is a breaking change that the
+    // previous implementation missed because it only checked the top-level
+    // type string — but "object" vs "string" would have been caught anyway.
+    // The real gap was object ↔ primitive or array ↔ primitive transitions
+    // where the item type string differs but the structural category changes.
+    if (isStructural(oldItems) !== isStructural(newItems)) {
+      const kind: ChangeKind = "ARRAY_ITEM_TYPE_CHANGED";
+      const fromType = formatType(oldItems);
+      const toType = formatType(newItems);
+      changes.push({
+        path: `${path}[]`,
+        kind,
+        impact: classifyImpact(kind),
+        from: fromType,
+        to: toType,
+        description: `Array \`${path}\` item type changed from ${fromType} to ${toType} (structural change)`,
+      });
+      return; // Don't recurse further — the whole item shape changed
+    }
+
+    // If both are the same structural category, recurse normally
+    diffNodes(`${path}[]`, oldItems, newItems, changes, depth + 1);
   }
 }
 
@@ -165,7 +208,7 @@ export function diffSchemas(
   ]);
 
   for (const key of allKeys) {
-    diffNodes(key, oldSchema[key], newSchema[key], changes);
+    diffNodes(key, oldSchema[key], newSchema[key], changes, 0);
   }
 
   return {

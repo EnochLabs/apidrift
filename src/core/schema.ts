@@ -2,7 +2,6 @@
  * Schema extraction: turns a real API response into a lightweight "shape"
  * We store the shape, not the data — privacy-safe and tiny.
  */
-
 export type SchemaType =
   | "string"
   | "number"
@@ -24,34 +23,45 @@ export type Schema = Record<string, SchemaNode>;
 
 /**
  * Extract a schema "shape" from a JSON value.
- * This is recursive and handles nested objects/arrays.
+ *
+ * This is recursive and handles nested objects/arrays. A `seen` WeakSet is
+ * threaded through every recursive call to detect circular references and
+ * return `{ type: "unknown" }` instead of throwing a RangeError.
  */
-export function extractSchema(value: unknown): SchemaNode {
+export function extractSchema(value: unknown, seen: WeakSet<object> = new WeakSet()): SchemaNode {
   if (value === null) return { type: "null" };
   if (value === undefined) return { type: "unknown" };
 
   const t = typeof value;
-
-  if (t === "string") return { type: "string" };
-  if (t === "number") return { type: "number" };
+  if (t === "string")  return { type: "string" };
+  if (t === "number")  return { type: "number" };
   if (t === "boolean") return { type: "boolean" };
 
   if (Array.isArray(value)) {
+    // Guard against circular arrays
+    if (seen.has(value)) return { type: "array", items: { type: "unknown" } };
+    seen.add(value);
+
     if (value.length === 0) {
       return { type: "array", items: { type: "unknown" } };
     }
     // Sample first few items to infer array item schema
     const samples = value.slice(0, 3);
-    const itemSchemas = samples.map(extractSchema);
+    const itemSchemas = samples.map((item) => extractSchema(item, seen));
     const merged = mergeSchemas(itemSchemas);
     return { type: "array", items: merged };
   }
 
   if (t === "object") {
     const obj = value as Record<string, unknown>;
+
+    // Guard against circular objects
+    if (seen.has(obj)) return { type: "unknown" };
+    seen.add(obj);
+
     const children: Record<string, SchemaNode> = {};
     for (const key of Object.keys(obj)) {
-      children[key] = extractSchema(obj[key]);
+      children[key] = extractSchema(obj[key], seen);
     }
     return { type: "object", children };
   }
