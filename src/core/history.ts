@@ -69,7 +69,9 @@ function loadHistoryStore(): HistoryStore {
 function saveHistoryStore(store: HistoryStore): void {
   const p = getHistoryPath();
   ensureDir(p);
-  fs.writeFileSync(p, JSON.stringify(store, null, 2), "utf-8");
+  const tempPath = p + ".tmp";
+  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
+  fs.renameSync(tempPath, p);
 }
 
 /**

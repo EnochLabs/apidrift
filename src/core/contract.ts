@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Schema, SchemaNode } from "./schema.js";
+import { formatType } from "./diff.js";
 
 export interface ContractField {
   type: string;
@@ -61,7 +62,9 @@ export function loadContracts(): ContractStore {
 
 export function saveContracts(store: ContractStore): void {
   const p = getContractPath();
-  fs.writeFileSync(p, JSON.stringify(store, null, 2), "utf-8");
+  const tempPath = p + ".tmp";
+  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
+  fs.renameSync(tempPath, p);
 }
 
 /**
@@ -174,6 +177,17 @@ function validateNode(
     const actualChildren = actual.children || {};
     for (const [key, expectedChild] of Object.entries(expected.children)) {
       validateNode(path ? `${path}.${key}` : key, actualChildren[key], expectedChild, violations);
+    }
+    // Check for unexpected fields
+    for (const key of Object.keys(actualChildren)) {
+      if (!(key in expected.children)) {
+        violations.push({
+          field: path ? `${path}.${key}` : key,
+          expected: "field not in contract",
+          actual: formatType(actualChildren[key]),
+          description: `Unexpected field \`${path ? `${path}.${key}` : key}\` found in schema`,
+        });
+      }
     }
   }
 

@@ -368,8 +368,9 @@ async function cmdDiffWatchFile(
   checkForDrift();
 
   // Watch for file changes
+  let watcher: fs.FSWatcher | undefined;
   if (fs.existsSync(snapshotsFile)) {
-    fs.watch(snapshotsFile, () => {
+    watcher = fs.watch(snapshotsFile, () => {
       // Debounce: wait a tick for the write to complete
       setTimeout(checkForDrift, 50);
     });
@@ -377,7 +378,7 @@ async function cmdDiffWatchFile(
     // Watch the directory for the file to be created
     const watchDir = path.dirname(snapshotsFile);
     if (!fs.existsSync(watchDir)) fs.mkdirSync(watchDir, { recursive: true });
-    fs.watch(watchDir, (_event: string, filename: string | null) => {
+    watcher = fs.watch(watchDir, (_event: string, filename: string | null) => {
       if (filename === "snapshots.json") {
         setTimeout(checkForDrift, 50);
       }
@@ -385,6 +386,7 @@ async function cmdDiffWatchFile(
   }
 
   process.on("SIGINT", () => {
+    if (watcher) watcher.close();
     if (!flags["--json"]) {
       console.log(`\n\n  ${c.gray}File watch stopped.${c.reset}\n`);
     }

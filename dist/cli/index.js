@@ -313,8 +313,9 @@ async function cmdDiffWatchFile(url, flags) {
     // Initial read
     checkForDrift();
     // Watch for file changes
+    let watcher;
     if (fs.existsSync(snapshotsFile)) {
-        fs.watch(snapshotsFile, () => {
+        watcher = fs.watch(snapshotsFile, () => {
             // Debounce: wait a tick for the write to complete
             setTimeout(checkForDrift, 50);
         });
@@ -324,13 +325,15 @@ async function cmdDiffWatchFile(url, flags) {
         const watchDir = path.dirname(snapshotsFile);
         if (!fs.existsSync(watchDir))
             fs.mkdirSync(watchDir, { recursive: true });
-        fs.watch(watchDir, (_event, filename) => {
+        watcher = fs.watch(watchDir, (_event, filename) => {
             if (filename === "snapshots.json") {
                 setTimeout(checkForDrift, 50);
             }
         });
     }
     process.on("SIGINT", () => {
+        if (watcher)
+            watcher.close();
         if (!flags["--json"]) {
             console.log(`\n\n  ${c.gray}File watch stopped.${c.reset}\n`);
         }

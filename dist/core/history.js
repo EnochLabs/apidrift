@@ -47,7 +47,9 @@ function loadHistoryStore() {
 function saveHistoryStore(store) {
     const p = getHistoryPath();
     ensureDir(p);
-    fs.writeFileSync(p, JSON.stringify(store, null, 2), "utf-8");
+    const tempPath = p + '.tmp';
+    fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
+    fs.renameSync(tempPath, p);
 }
 /**
  * Append a history entry for an endpoint.

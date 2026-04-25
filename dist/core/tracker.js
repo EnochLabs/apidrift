@@ -72,22 +72,29 @@ export function track(url, body, options = {}, latency) {
         // Webhook support
         const webhookUrl = process.env.APIDRIFT_WEBHOOK;
         if (webhookUrl && (result.hasBreaking || process.env.APIDRIFT_VERBOSE)) {
-            import("https")
-                .then((https) => {
-                const url = new URL(webhookUrl);
-                const payload = JSON.stringify({
-                    text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map((c) => `- ${c.description}`).join("\n")}`,
-                    endpoint,
-                    changes: result.changes,
-                });
-                const req = https.request(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Content-Length": payload.length },
-                });
-                req.write(payload);
-                req.end();
-            })
-                .catch(() => { });
+            (async () => {
+                try {
+                    const https = await import("https");
+                    const url = new URL(webhookUrl);
+                    const payload = JSON.stringify({
+                        text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map((c) => `- ${c.description}`).join("\n")}`,
+                        endpoint,
+                        changes: result.changes,
+                    });
+                    const req = https.request(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+                    });
+                    req.on('error', (err) => {
+                        console.error('Apidrift webhook error:', err.message);
+                    });
+                    req.write(payload);
+                    req.end();
+                }
+                catch (err) {
+                    console.error('Apidrift webhook setup error:', err instanceof Error ? err.message : String(err));
+                }
+            })();
         }
         options.onDrift?.(result);
         if (result.hasBreaking)

@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { formatType } from "./diff.js";
 const CONTRACT_FILE = "apidrift.contract.json";
 function getContractPath() {
     let dir = process.cwd();
@@ -30,7 +31,9 @@ export function loadContracts() {
 }
 export function saveContracts(store) {
     const p = getContractPath();
-    fs.writeFileSync(p, JSON.stringify(store, null, 2), "utf-8");
+    const tempPath = p + '.tmp';
+    fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
+    fs.renameSync(tempPath, p);
 }
 /**
  * Save current snapshot schema as a contract for an endpoint
@@ -131,6 +134,17 @@ function validateNode(path, actual, expected, violations) {
         const actualChildren = actual.children || {};
         for (const [key, expectedChild] of Object.entries(expected.children)) {
             validateNode(path ? `${path}.${key}` : key, actualChildren[key], expectedChild, violations);
+        }
+        // Check for unexpected fields
+        for (const key of Object.keys(actualChildren)) {
+            if (!(key in expected.children)) {
+                violations.push({
+                    field: path ? `${path}.${key}` : key,
+                    expected: "field not in contract",
+                    actual: formatType(actualChildren[key]),
+                    description: `Unexpected field \`${path ? `${path}.${key}` : key}\` found in schema`,
+                });
+            }
         }
     }
     // Deep check arrays

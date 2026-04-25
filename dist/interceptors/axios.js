@@ -16,7 +16,10 @@ export function patchAxios(axiosInstance, options = {}) {
         try {
             const url = response.config?.url ?? "";
             const baseURL = response.config?.baseURL ?? "";
-            const fullUrl = url.startsWith("http") ? url : baseURL + url;
+            let fullUrl = url;
+            if (baseURL && !url.startsWith("http")) {
+                fullUrl = baseURL.endsWith("/") ? baseURL + url : baseURL + "/" + url;
+            }
             if (options.filter && !options.filter(fullUrl)) {
                 return response;
             }

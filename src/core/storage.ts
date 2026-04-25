@@ -57,15 +57,23 @@ export function loadStore(): SnapshotStore {
 export function saveStore(store: SnapshotStore): void {
   const storePath = getStorePath();
   ensureDir(storePath);
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2), "utf-8");
+  const tempPath = storePath + ".tmp";
+  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
+  fs.renameSync(tempPath, storePath);
 }
 
 export function getSnapshot(endpoint: string): Snapshot | null {
+  // Normalize endpoint to use forward slashes for cross-platform compatibility
+  endpoint = endpoint.replace(/\\/g, "/");
+
   const store = loadStore();
   return store.snapshots[endpoint] ?? null;
 }
 
 export function saveSnapshot(endpoint: string, schema: Schema, latency?: number): Snapshot {
+  // Normalize endpoint to use forward slashes for cross-platform compatibility
+  endpoint = endpoint.replace(/\\/g, "/");
+
   const store = loadStore();
   const existing = store.snapshots[endpoint];
 

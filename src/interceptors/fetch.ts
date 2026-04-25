@@ -93,8 +93,9 @@ export function patchFetch(options: InterceptOptions = {}): void {
         return response;
       }
 
-      const contentType = response.headers.get("content-type") ?? "";
-      const isJson = contentTypes.some((ct) => contentType.includes(ct));
+      const contentType =
+        response.headers.get("content-type") || response.headers.get("Content-Type") || "";
+      const isJson = contentTypes.some((ct) => contentType.toLowerCase().includes(ct));
 
       if (isJson && response.ok) {
         // Clone so we don't consume the body

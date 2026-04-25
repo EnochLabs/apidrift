@@ -97,8 +97,9 @@ export function track(
     // Webhook support
     const webhookUrl = process.env.APIDRIFT_WEBHOOK;
     if (webhookUrl && (result.hasBreaking || process.env.APIDRIFT_VERBOSE)) {
-      import("https")
-        .then((https) => {
+      (async () => {
+        try {
+          const https = await import("https");
           const url = new URL(webhookUrl);
           const payload = JSON.stringify({
             text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map((c) => `- ${c.description}`).join("\n")}`,
@@ -107,12 +108,23 @@ export function track(
           });
           const req = https.request(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Content-Length": payload.length },
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(payload),
+            },
+          });
+          req.on("error", (err) => {
+            console.error("Apidrift webhook error:", err.message);
           });
           req.write(payload);
           req.end();
-        })
-        .catch(() => {});
+        } catch (err) {
+          console.error(
+            "Apidrift webhook setup error:",
+            err instanceof Error ? err.message : String(err)
+          );
+        }
+      })();
     }
 
     options.onDrift?.(result);

@@ -19,7 +19,7 @@ function classifyImpact(kind) {
 /**
  * Format a SchemaNode type for display
  */
-function formatType(node) {
+export function formatType(node) {
     let base = node.type;
     if (node.type === "array" && node.items) {
         base = `${node.items.type}[]`;

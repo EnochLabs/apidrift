@@ -119,7 +119,7 @@ export function detectDataDrift(endpoint, current, baseline) {
                 severity: zScore > 4 ? "HIGH" : zScore > 3 ? "MEDIUM" : "LOW",
                 baseline: parseFloat(mean.toFixed(4)),
                 current: value,
-                changePercent: parseFloat(changePercent.toFixed(1)),
+                changePercent: Math.round(changePercent * 10) / 10,
                 description: `${path}: ${value > mean ? "spike" : "drop"} detected (${changePercent > 0 ? "+" : ""}${changePercent.toFixed(1)}% from baseline μ=${mean.toFixed(2)})`,
             });
             continue;
@@ -132,7 +132,7 @@ export function detectDataDrift(endpoint, current, baseline) {
                 severity: Math.abs(changePercent) > 100 ? "HIGH" : "MEDIUM",
                 baseline: parseFloat(mean.toFixed(4)),
                 current: value,
-                changePercent: parseFloat(changePercent.toFixed(1)),
+                changePercent: Math.round(changePercent * 10) / 10,
                 description: `${path}: mean shift ${changePercent > 0 ? "+" : ""}${changePercent.toFixed(1)}% (baseline ${mean.toFixed(2)} → current ${value})`,
             });
             continue;

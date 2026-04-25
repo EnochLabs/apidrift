@@ -15,15 +15,26 @@
 import { track } from "../core/tracker.js";
 function loadReact() {
     const globalCtx = globalThis;
-    const r = globalCtx.React ??
-        (() => {
-            try {
-                return globalCtx.__apidrift_require?.("react");
+    let r = globalCtx.React;
+    if (!r) {
+        try {
+            r = globalCtx.__apidrift_require?.("react");
+        }
+        catch {
+            // ignore
+        }
+    }
+    if (!r) {
+        try {
+            // Fallback for Node environments
+            if (typeof require === 'function') {
+                r = require("react");
             }
-            catch {
-                return null;
-            }
-        })();
+        }
+        catch {
+            // ignore
+        }
+    }
     if (!r || typeof r.useState !== "function") {
         throw new Error("[apidrift] React not found. Install react and ensure it is accessible globally, " +
             "or use the programmatic track() API instead.");

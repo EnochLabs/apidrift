@@ -32,15 +32,27 @@ function loadReact(): ReactLike {
   };
 
   const globalCtx = globalThis as unknown as GlobalReact;
-  const r =
-    globalCtx.React ??
-    (() => {
-      try {
-        return globalCtx.__apidrift_require?.("react");
-      } catch {
-        return null;
+  let r = globalCtx.React;
+
+  if (!r) {
+    try {
+      r = globalCtx.__apidrift_require?.("react");
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!r) {
+    try {
+      // Fallback for Node environments
+      if (typeof require === "function") {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        r = require("react");
       }
-    })();
+    } catch {
+      // ignore
+    }
+  }
 
   if (!r || typeof (r as ReactLike).useState !== "function") {
     throw new Error(
