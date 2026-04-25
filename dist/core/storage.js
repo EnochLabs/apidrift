@@ -39,19 +39,19 @@ export function loadStore() {
 export function saveStore(store) {
     const storePath = getStorePath();
     ensureDir(storePath);
-    const tempPath = storePath + '.tmp';
+    const tempPath = storePath + ".tmp";
     fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
     fs.renameSync(tempPath, storePath);
 }
 export function getSnapshot(endpoint) {
     // Normalize endpoint to use forward slashes for cross-platform compatibility
-    endpoint = endpoint.replace(/\\/g, '/');
+    endpoint = endpoint.replace(/\\/g, "/");
     const store = loadStore();
     return store.snapshots[endpoint] ?? null;
 }
 export function saveSnapshot(endpoint, schema, latency) {
     // Normalize endpoint to use forward slashes for cross-platform compatibility
-    endpoint = endpoint.replace(/\\/g, '/');
+    endpoint = endpoint.replace(/\\/g, "/");
     const store = loadStore();
     const existing = store.snapshots[endpoint];
     let avgLatency = existing?.avgLatency;

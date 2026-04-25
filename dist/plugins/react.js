@@ -27,7 +27,8 @@ function loadReact() {
     if (!r) {
         try {
             // Fallback for Node environments
-            if (typeof require === 'function') {
+            if (typeof require === "function") {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
                 r = require("react");
             }
         }

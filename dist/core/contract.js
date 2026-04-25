@@ -31,7 +31,7 @@ export function loadContracts() {
 }
 export function saveContracts(store) {
     const p = getContractPath();
-    const tempPath = p + '.tmp';
+    const tempPath = p + ".tmp";
     fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
     fs.renameSync(tempPath, p);
 }
