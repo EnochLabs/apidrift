@@ -1,15 +1,12 @@
-"use strict";
 /**
  * apidrift dashboard — interactive terminal UI
  *
  * Zero dependencies. Pure ANSI escape codes + stdin raw mode.
  * Run: apidrift dashboard
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.runDashboard = runDashboard;
-const storage_js_1 = require("../core/storage.js");
-const history_js_1 = require("../core/history.js");
-const contract_js_1 = require("../core/contract.js");
+import { listSnapshots } from "../core/storage.js";
+import { getAllHistory } from "../core/history.js";
+import { loadContracts } from "../core/contract.js";
 // ─── ANSI ────────────────────────────────────────────────────────────────────
 const ESC = "\x1b[";
 const A = {
@@ -50,12 +47,24 @@ const A = {
 function move(row, col) {
     return `${ESC}${row};${col}H`;
 }
-function clearScreen() { return `${ESC}2J${ESC}H`; }
-function clearLine() { return `${ESC}2K`; }
-function hideCursor() { return `${ESC}?25l`; }
-function showCursor() { return `${ESC}?25h`; }
-function saveCursor() { return `${ESC}s`; }
-function restoreCursor() { return `${ESC}u`; }
+function clearScreen() {
+    return `${ESC}2J${ESC}H`;
+}
+function clearLine() {
+    return `${ESC}2K`;
+}
+function hideCursor() {
+    return `${ESC}?25l`;
+}
+function showCursor() {
+    return `${ESC}?25h`;
+}
+function saveCursor() {
+    return `${ESC}s`;
+}
+function restoreCursor() {
+    return `${ESC}u`;
+}
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 function getTermSize() {
     return {
@@ -146,7 +155,8 @@ function renderOverview(state, cols, rows) {
     // Summary bar
     const totalEndpoints = snapshots.length;
     const totalBreaking = historyStore.history
-        ? Object.values(historyStore.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === "BREAKING").length, 0), 0)
+        ? Object.values(historyStore.history).reduce((acc, h) => acc +
+            h.entries.reduce((a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length, 0), 0)
         : 0;
     const hasContract = Object.keys(state.contractStore.contracts).length;
     lines.push("");
@@ -161,10 +171,14 @@ function renderOverview(state, cols, rows) {
     const COL_FIELDS = 8;
     const COL_LAST = 22;
     const header = `  ${A.bold}${A.underline}${A.gray}` +
-        pad("ENDPOINT", COL_ENDPOINT) + "  " +
-        pad("STABILITY", COL_STABILITY) + "  " +
-        pad("CHANGES", COL_CHANGES) + "  " +
-        pad("FIELDS", COL_FIELDS) + "  " +
+        pad("ENDPOINT", COL_ENDPOINT) +
+        "  " +
+        pad("STABILITY", COL_STABILITY) +
+        "  " +
+        pad("CHANGES", COL_CHANGES) +
+        "  " +
+        pad("FIELDS", COL_FIELDS) +
+        "  " +
         pad("LAST SEEN", COL_LAST) +
         A.reset;
     lines.push(header);
@@ -180,7 +194,10 @@ function renderOverview(state, cols, rows) {
         const totalChanges = hist?.entries.reduce((a, e) => a + e.changes.length, 0) ?? 0;
         const fieldCount = Object.keys(snap.schema).length;
         const lastSeen = new Date(snap.capturedAt).toLocaleString("en", {
-            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
         });
         const endpointStr = truncate(snap.endpoint.replace(/^https?:\/\/[^/]+/, "") || snap.endpoint, COL_ENDPOINT);
         const bar = stabilityBar(score, 8);
@@ -192,10 +209,13 @@ function renderOverview(state, cols, rows) {
         const reset = isSelected ? A.reset : "";
         const cursor = isSelected ? `${A.brightCyan}▶${A.reset} ` : "  ";
         const row = `${cursor}${bg}` +
-            pad(`${isSelected ? A.brightWhite : A.white}${endpointStr}${A.reset}`, COL_ENDPOINT + 10) + "  " +
+            pad(`${isSelected ? A.brightWhite : A.white}${endpointStr}${A.reset}`, COL_ENDPOINT + 10) +
+            "  " +
             `${bar} ${scoreStr}   ` +
-            pad(changesStr, COL_CHANGES + 10) + "  " +
-            pad(`${A.gray}${fieldCount}${A.reset}`, COL_FIELDS + 8) + "  " +
+            pad(changesStr, COL_CHANGES + 10) +
+            "  " +
+            pad(`${A.gray}${fieldCount}${A.reset}`, COL_FIELDS + 8) +
+            "  " +
             `${A.dim}${lastSeen}${A.reset}` +
             `${reset}`;
         lines.push(row);
@@ -228,10 +248,13 @@ function renderTimeline(state, cols) {
     // Timeline visualization
     hist.entries.slice(-15).forEach((entry, i) => {
         const date = new Date(entry.timestamp).toLocaleString("en", {
-            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
         });
         const isFirst = i === 0;
-        const hasBreaking = entry.changes.some(c => c.impact === "BREAKING");
+        const hasBreaking = entry.changes.some((c) => c.impact === "BREAKING");
         const hasChanges = entry.changes.length > 0;
         const dot = isFirst
             ? `${A.dim}◎${A.reset}`
@@ -340,15 +363,15 @@ function loadState() {
     return {
         tab: "overview",
         selectedEndpoint: 0,
-        snapshots: (0, storage_js_1.listSnapshots)(),
-        historyStore: (0, history_js_1.getAllHistory)(),
-        contractStore: (0, contract_js_1.loadContracts)(),
+        snapshots: listSnapshots(),
+        historyStore: getAllHistory(),
+        contractStore: loadContracts(),
         tick: 0,
         lastRefresh: new Date(),
         scrollOffset: 0,
     };
 }
-async function runDashboard() {
+export async function runDashboard() {
     if (!process.stdout.isTTY) {
         console.error("apidrift dashboard requires a TTY terminal.");
         process.exit(1);
@@ -360,7 +383,9 @@ async function runDashboard() {
         stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding("utf-8");
-    const write = (s) => { process.stdout.write(s); };
+    const write = (s) => {
+        process.stdout.write(s);
+    };
     function render() {
         const { cols, rows } = getTermSize();
         const buf = [];
@@ -462,6 +487,8 @@ async function runDashboard() {
     // Initial render
     render();
     // Keep process alive
-    await new Promise(() => { });
+    await new Promise(() => {
+        /* runs until cleanup() */
+    });
 }
 //# sourceMappingURL=dashboard.js.map

@@ -51,12 +51,24 @@ const A = {
 function move(row: number, col: number): string {
   return `${ESC}${row};${col}H`;
 }
-function clearScreen(): string { return `${ESC}2J${ESC}H`; }
-function clearLine(): string { return `${ESC}2K`; }
-function hideCursor(): string { return `${ESC}?25l`; }
-function showCursor(): string { return `${ESC}?25h`; }
-function saveCursor(): string { return `${ESC}s`; }
-function restoreCursor(): string { return `${ESC}u`; }
+function clearScreen(): string {
+  return `${ESC}2J${ESC}H`;
+}
+function clearLine(): string {
+  return `${ESC}2K`;
+}
+function hideCursor(): string {
+  return `${ESC}?25l`;
+}
+function showCursor(): string {
+  return `${ESC}?25h`;
+}
+function saveCursor(): string {
+  return `${ESC}s`;
+}
+function restoreCursor(): string {
+  return `${ESC}u`;
+}
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 
@@ -179,20 +191,23 @@ function renderOverview(state: DashState, cols: number, rows: number): string {
   const totalEndpoints = snapshots.length;
   const totalBreaking = historyStore.history
     ? Object.values(historyStore.history).reduce(
-        (acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === "BREAKING").length, 0),
+        (acc, h) =>
+          acc +
+          h.entries.reduce(
+            (a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length,
+            0
+          ),
         0
       )
     : 0;
 
-  const hasContract = Object.keys(
-    state.contractStore.contracts
-  ).length;
+  const hasContract = Object.keys(state.contractStore.contracts).length;
 
   lines.push("");
   lines.push(
     `  ${A.bold}${totalEndpoints}${A.reset}${A.gray} endpoints  ${A.reset}` +
-    `${A.bold}${A.brightRed}${totalBreaking}${A.reset}${A.gray} breaking changes  ${A.reset}` +
-    `${A.bold}${A.cyan}${hasContract}${A.reset}${A.gray} contracts locked${A.reset}`
+      `${A.bold}${A.brightRed}${totalBreaking}${A.reset}${A.gray} breaking changes  ${A.reset}` +
+      `${A.bold}${A.cyan}${hasContract}${A.reset}${A.gray} contracts locked${A.reset}`
   );
   lines.push("");
 
@@ -205,10 +220,14 @@ function renderOverview(state: DashState, cols: number, rows: number): string {
 
   const header =
     `  ${A.bold}${A.underline}${A.gray}` +
-    pad("ENDPOINT", COL_ENDPOINT) + "  " +
-    pad("STABILITY", COL_STABILITY) + "  " +
-    pad("CHANGES", COL_CHANGES) + "  " +
-    pad("FIELDS", COL_FIELDS) + "  " +
+    pad("ENDPOINT", COL_ENDPOINT) +
+    "  " +
+    pad("STABILITY", COL_STABILITY) +
+    "  " +
+    pad("CHANGES", COL_CHANGES) +
+    "  " +
+    pad("FIELDS", COL_FIELDS) +
+    "  " +
     pad("LAST SEEN", COL_LAST) +
     A.reset;
 
@@ -228,15 +247,22 @@ function renderOverview(state: DashState, cols: number, rows: number): string {
     const totalChanges = hist?.entries.reduce((a, e) => a + e.changes.length, 0) ?? 0;
     const fieldCount = Object.keys(snap.schema).length;
     const lastSeen = new Date(snap.capturedAt).toLocaleString("en", {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
-    const endpointStr = truncate(snap.endpoint.replace(/^https?:\/\/[^/]+/, "") || snap.endpoint, COL_ENDPOINT);
+    const endpointStr = truncate(
+      snap.endpoint.replace(/^https?:\/\/[^/]+/, "") || snap.endpoint,
+      COL_ENDPOINT
+    );
     const bar = stabilityBar(score, 8);
     const scoreStr = `${score >= 80 ? A.brightGreen : score >= 50 ? A.yellow : A.brightRed}${String(score).padStart(3)}%${A.reset}`;
-    const changesStr = totalChanges === 0
-      ? `${A.dim}   none${A.reset}`
-      : `${A.yellow}${String(totalChanges).padStart(6)}${A.reset}`;
+    const changesStr =
+      totalChanges === 0
+        ? `${A.dim}   none${A.reset}`
+        : `${A.yellow}${String(totalChanges).padStart(6)}${A.reset}`;
 
     const bg = isSelected ? `${A.bgGray}` : "";
     const reset = isSelected ? A.reset : "";
@@ -244,10 +270,13 @@ function renderOverview(state: DashState, cols: number, rows: number): string {
 
     const row =
       `${cursor}${bg}` +
-      pad(`${isSelected ? A.brightWhite : A.white}${endpointStr}${A.reset}`, COL_ENDPOINT + 10) + "  " +
+      pad(`${isSelected ? A.brightWhite : A.white}${endpointStr}${A.reset}`, COL_ENDPOINT + 10) +
+      "  " +
       `${bar} ${scoreStr}   ` +
-      pad(changesStr, COL_CHANGES + 10) + "  " +
-      pad(`${A.gray}${fieldCount}${A.reset}`, COL_FIELDS + 8) + "  " +
+      pad(changesStr, COL_CHANGES + 10) +
+      "  " +
+      pad(`${A.gray}${fieldCount}${A.reset}`, COL_FIELDS + 8) +
+      "  " +
       `${A.dim}${lastSeen}${A.reset}` +
       `${reset}`;
 
@@ -257,7 +286,9 @@ function renderOverview(state: DashState, cols: number, rows: number): string {
   // Scroll indicator
   if (snapshots.length > visibleRows) {
     const pct = Math.round((start / (snapshots.length - visibleRows)) * 100);
-    lines.push(`  ${A.dim}  ↑↓ scroll  (${pct}%)  [${start + 1}–${start + visible.length} of ${snapshots.length}]${A.reset}`);
+    lines.push(
+      `  ${A.dim}  ↑↓ scroll  (${pct}%)  [${start + 1}–${start + visible.length} of ${snapshots.length}]${A.reset}`
+    );
   }
 
   return lines.join("\n");
@@ -289,10 +320,13 @@ function renderTimeline(state: DashState, cols: number): string {
   // Timeline visualization
   hist.entries.slice(-15).forEach((entry, i) => {
     const date = new Date(entry.timestamp).toLocaleString("en", {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
     const isFirst = i === 0;
-    const hasBreaking = entry.changes.some(c => c.impact === "BREAKING");
+    const hasBreaking = entry.changes.some((c) => c.impact === "BREAKING");
     const hasChanges = entry.changes.length > 0;
 
     const dot = isFirst
@@ -338,7 +372,9 @@ function renderContracts(state: DashState, cols: number): string {
   const endpoints = Object.keys(contracts);
 
   lines.push("");
-  lines.push(`  ${A.bold}Contract Enforcement${A.reset}  ${A.dim}Lock schemas to catch any deviation${A.reset}`);
+  lines.push(
+    `  ${A.bold}Contract Enforcement${A.reset}  ${A.dim}Lock schemas to catch any deviation${A.reset}`
+  );
   lines.push("");
 
   if (endpoints.length === 0) {
@@ -370,8 +406,7 @@ function renderContracts(state: DashState, cols: number): string {
 function renderHelp(cols: number): string {
   const lines: string[] = [];
 
-  const section = (title: string): string =>
-    `\n  ${A.bold}${A.brightCyan}${title}${A.reset}`;
+  const section = (title: string): string => `\n  ${A.bold}${A.brightCyan}${title}${A.reset}`;
 
   const cmd = (key: string, desc: string): string =>
     `  ${A.bold}${A.yellow}${pad(key, 18)}${A.reset}  ${A.dim}${desc}${A.reset}`;
@@ -400,9 +435,15 @@ function renderHelp(cols: number): string {
   lines.push(cmd("APIDRIFT_FILTER=<str>", "Only track URLs containing string"));
 
   lines.push(section("Integration"));
-  lines.push(`  ${A.gray}  import "apidrift/register"${A.reset}           ${A.dim}auto-patch fetch${A.reset}`);
-  lines.push(`  ${A.gray}  import { patchAxios } from "apidrift"${A.reset}  ${A.dim}patch axios instance${A.reset}`);
-  lines.push(`  ${A.gray}  import { track } from "apidrift"${A.reset}       ${A.dim}manual tracking${A.reset}`);
+  lines.push(
+    `  ${A.gray}  import "apidrift/register"${A.reset}           ${A.dim}auto-patch fetch${A.reset}`
+  );
+  lines.push(
+    `  ${A.gray}  import { patchAxios } from "apidrift"${A.reset}  ${A.dim}patch axios instance${A.reset}`
+  );
+  lines.push(
+    `  ${A.gray}  import { track } from "apidrift"${A.reset}       ${A.dim}manual tracking${A.reset}`
+  );
 
   lines.push("");
 
@@ -454,7 +495,9 @@ export async function runDashboard(): Promise<void> {
   stdin.resume();
   stdin.setEncoding("utf-8");
 
-  const write = (s: string): void => { process.stdout.write(s); };
+  const write = (s: string): void => {
+    process.stdout.write(s);
+  };
 
   function render(): void {
     const { cols, rows } = getTermSize();
@@ -572,5 +615,7 @@ export async function runDashboard(): Promise<void> {
   render();
 
   // Keep process alive
-  await new Promise<void>(() => { /* runs until cleanup() */ });
+  await new Promise<void>(() => {
+    /* runs until cleanup() */
+  });
 }

@@ -85,8 +85,8 @@ export function patchFetch(options: InterceptOptions = {}): void {
         typeof input === "string"
           ? input
           : input instanceof URL
-          ? input.toString()
-          : (input as Request).url;
+            ? input.toString()
+            : (input as Request).url;
 
       // Apply filter if provided
       if (options.filter && !options.filter(url)) {
@@ -99,11 +99,14 @@ export function patchFetch(options: InterceptOptions = {}): void {
       if (isJson && response.ok) {
         // Clone so we don't consume the body
         const cloned = response.clone();
-        cloned.json().then((body: unknown) => {
-          track(url, body, options);
-        }).catch(() => {
-          // Silently ignore parse errors
-        });
+        cloned
+          .json()
+          .then((body: unknown) => {
+            track(url, body, options);
+          })
+          .catch(() => {
+            // Silently ignore parse errors
+          });
       }
     } catch {
       // Never crash the app — apidrift is an observer, not a blocker

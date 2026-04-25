@@ -30,7 +30,7 @@ export declare function normalizeEndpoint(url: string): string;
  *
  * Returns the DriftResult if changes were found, null otherwise.
  */
-export declare function track(url: string, body: unknown, options?: TrackOptions): DriftResult | null;
+export declare function track(url: string, body: unknown, options?: TrackOptions, latency?: number): DriftResult | null;
 /**
  * Manually compare two JSON bodies without touching the snapshot store.
  * Useful for scripted comparisons and testing.

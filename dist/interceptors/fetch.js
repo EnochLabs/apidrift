@@ -1,9 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.patchFetch = patchFetch;
-exports.unpatchFetch = unpatchFetch;
-exports.isFetchPatched = isFetchPatched;
-const tracker_js_1 = require("../core/tracker.js");
+import { track } from "../core/tracker.js";
 let _isPatched = false;
 // Keep a reference to the original fetch so unpatchFetch can truly restore it
 let _originalFetch = null;
@@ -20,7 +15,7 @@ const defaultContentTypes = ["application/json", "application/ld+json"];
  *
  * Safe to call multiple times — only patches once per target.
  */
-function patchFetch(options = {}) {
+export function patchFetch(options = {}) {
     if (_isPatched)
         return;
     // Resolve the target — default to globalThis
@@ -48,9 +43,12 @@ function patchFetch(options = {}) {
             if (isJson && response.ok) {
                 // Clone so we don't consume the body
                 const cloned = response.clone();
-                cloned.json().then((body) => {
-                    (0, tracker_js_1.track)(url, body, options);
-                }).catch(() => {
+                cloned
+                    .json()
+                    .then((body) => {
+                    track(url, body, options);
+                })
+                    .catch(() => {
                     // Silently ignore parse errors
                 });
             }
@@ -73,7 +71,7 @@ function patchFetch(options = {}) {
  * restore the original function on the target object — meaning the patched
  * fetch would remain active indefinitely. This is now fixed.
  */
-function unpatchFetch() {
+export function unpatchFetch() {
     if (!_isPatched)
         return;
     if (_patchedTarget && _originalFetch) {
@@ -83,7 +81,7 @@ function unpatchFetch() {
     _patchedTarget = null;
     _isPatched = false;
 }
-function isFetchPatched() {
+export function isFetchPatched() {
     return _isPatched;
 }
 //# sourceMappingURL=fetch.js.map

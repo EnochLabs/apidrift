@@ -62,10 +62,10 @@ describe("Schema extraction — primitives");
 const { extractTopLevelSchema: ext } = m("core/schema.js");
 
 const s1 = ext({ id: 1, name: "Alice", active: true, score: null });
-assert(s1.id?.type     === "number",  "number field");
-assert(s1.name?.type   === "string",  "string field");
+assert(s1.id?.type === "number", "number field");
+assert(s1.name?.type === "string", "string field");
 assert(s1.active?.type === "boolean", "boolean field");
-assert(s1.score?.type  === "null",    "null field");
+assert(s1.score?.type === "null", "null field");
 
 // ── NEW FEATURES TESTS ───────────────────────────────────────────────────────
 
@@ -74,19 +74,25 @@ const { diffSchemas } = m("core/diff.js");
 
 const oldSchema = {
   status: { type: "string", enum: ["active", "inactive"] },
-  id: { type: "string", pattern: "uuid" }
+  id: { type: "string", pattern: "uuid" },
 };
 
 const newSchema = {
   status: { type: "string", enum: ["active", "inactive", "pending"] },
-  id: { type: "string", pattern: "email" }
+  id: { type: "string", pattern: "email" },
 };
 
 const diff = diffSchemas("test", oldSchema, newSchema);
 
 assert(diff.hasChanges === true, "detects changes");
-assert(diff.changes.some(c => c.kind === "ENUM_CHANGED"), "detects ENUM_CHANGED");
-assert(diff.changes.some(c => c.kind === "PATTERN_CHANGED"), "detects PATTERN_CHANGED");
+assert(
+  diff.changes.some((c) => c.kind === "ENUM_CHANGED"),
+  "detects ENUM_CHANGED"
+);
+assert(
+  diff.changes.some((c) => c.kind === "PATTERN_CHANGED"),
+  "detects PATTERN_CHANGED"
+);
 assert(diff.hasBreaking === true, "enum change is breaking");
 
 // ── Smart Enum Inference ─────────────────────────────────────────────────────
@@ -120,27 +126,30 @@ const deepSchema = {
       profile: {
         type: "object",
         children: {
-          bio: { type: "string" }
-        }
-      }
-    }
-  }
+          bio: { type: "string" },
+        },
+      },
+    },
+  },
 };
 lockContract("https://api.test.com/deep", deepSchema);
 
 const validDeep = {
-  user: { id: 1, profile: { bio: "hello" } }
+  user: { id: 1, profile: { bio: "hello" } },
 };
 const { extractTopLevelSchema } = m("core/schema.js");
 const res1 = enforceContract("https://api.test.com/deep", extractTopLevelSchema(validDeep));
 assert(res1.passed === true, "validates deep nested objects");
 
 const invalidDeep = {
-  user: { id: 1, profile: { bio: 123 } }
+  user: { id: 1, profile: { bio: 123 } },
 };
 const res2 = enforceContract("https://api.test.com/deep", extractTopLevelSchema(invalidDeep));
 assert(res2.passed === false, "fails on deep type mismatch");
-assert(res2.violations.some(v => v.field === "user.profile.bio"), "correctly identifies deep field path");
+assert(
+  res2.violations.some((v) => v.field === "user.profile.bio"),
+  "correctly identifies deep field path"
+);
 
 describe("Enhanced Type Generation");
 const { generateInterface } = m("utils/typegen.js");
@@ -149,14 +158,14 @@ const enumSchema = {
   meta: {
     type: "object",
     children: {
-      tags: { type: "array", items: { type: "string" } }
-    }
-  }
+      tags: { type: "array", items: { type: "string" } },
+    },
+  },
 };
 const typeOutput = generateInterface("TestResponse", enumSchema);
 assert(typeOutput.includes('status: "open" | "closed"'), "generates union for enums");
-assert(typeOutput.includes('tags: string[]'), "generates correct array types");
-assert(typeOutput.includes('meta: {'), "generates nested objects with braces");
+assert(typeOutput.includes("tags: string[]"), "generates correct array types");
+assert(typeOutput.includes("meta: {"), "generates nested objects with braces");
 
 describe("Pro Features — Patterns and Latency");
 const { extractSchema } = m("core/schema.js");
@@ -165,7 +174,7 @@ const patternsBody = {
   ip: "192.168.1.1",
   color: "#ff0000",
   phone: "+1234567890",
-  password: "secret_password"
+  password: "secret_password",
 };
 const ps = extractSchema(patternsBody);
 assert(ps.children.ip.pattern === "ipv4", "detects ipv4 pattern");

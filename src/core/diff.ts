@@ -170,10 +170,7 @@ function diffNodes(
   if (oldNode.type === "object" && newNode.type === "object") {
     const oldChildren = oldNode.children ?? {};
     const newChildren = newNode.children ?? {};
-    const allKeys = new Set([
-      ...Object.keys(oldChildren),
-      ...Object.keys(newChildren),
-    ]);
+    const allKeys = new Set([...Object.keys(oldChildren), ...Object.keys(newChildren)]);
     for (const key of allKeys) {
       diffNodes(
         path ? `${path}.${key}` : key,
@@ -187,12 +184,7 @@ function diffNodes(
   }
 
   // Recurse into arrays — with explicit structural-switch detection
-  if (
-    oldNode.type === "array" &&
-    newNode.type === "array" &&
-    oldNode.items &&
-    newNode.items
-  ) {
+  if (oldNode.type === "array" && newNode.type === "array" && oldNode.items && newNode.items) {
     const oldItems = oldNode.items;
     const newItems = newNode.items;
 
@@ -225,17 +217,10 @@ function diffNodes(
 /**
  * Compare two schemas and return a DriftResult
  */
-export function diffSchemas(
-  endpoint: string,
-  oldSchema: Schema,
-  newSchema: Schema
-): DriftResult {
+export function diffSchemas(endpoint: string, oldSchema: Schema, newSchema: Schema): DriftResult {
   const changes: DriftChange[] = [];
 
-  const allKeys = new Set([
-    ...Object.keys(oldSchema),
-    ...Object.keys(newSchema),
-  ]);
+  const allKeys = new Set([...Object.keys(oldSchema), ...Object.keys(newSchema)]);
 
   for (const key of allKeys) {
     diffNodes(key, oldSchema[key], newSchema[key], changes, 0);

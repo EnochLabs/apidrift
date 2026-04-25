@@ -5,9 +5,11 @@
  * to a running apidrift CLI server. Ships as a code generator — zero Python dep.
  */
 
-export function generateFastAPIMiddleware(options: {
-  reportUrl?: string;
-} = {}): string {
+export function generateFastAPIMiddleware(
+  options: {
+    reportUrl?: string;
+  } = {}
+): string {
   const reportUrl = options.reportUrl ?? "http://localhost:7821/drift";
 
   return `# apidrift FastAPI Middleware

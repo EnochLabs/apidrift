@@ -1,50 +1,12 @@
 #!/usr/bin/env node
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * apidrift CLI
  * The developer's API time machine.
  */
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
-const https_1 = __importDefault(require("https"));
-const http_1 = __importDefault(require("http"));
+import * as fs from "fs";
+import * as path from "path";
+import https from "https";
+import http from "http";
 const VERSION = "1.0.0";
 // ─── Colors ────────────────────────────────────────────────────────────────
 const c = {
@@ -73,24 +35,41 @@ const BANNER = `
 `;
 // ─── Lazy imports ───────────────────────────────────────────────────────────
 async function getModules() {
-    const { listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore } = await Promise.resolve().then(() => __importStar(require("../core/storage.js")));
-    const { diffSchemas } = await Promise.resolve().then(() => __importStar(require("../core/diff.js")));
-    const { reportDrift, ciReport, generateHtmlReport } = await Promise.resolve().then(() => __importStar(require("../core/reporter.js")));
-    const { extractTopLevelSchema } = await Promise.resolve().then(() => __importStar(require("../core/schema.js")));
-    const { generateTypesFromSnapshots } = await Promise.resolve().then(() => __importStar(require("../utils/typegen.js")));
-    const { compare } = await Promise.resolve().then(() => __importStar(require("../core/tracker.js")));
-    const { getHistory, getAllHistory } = await Promise.resolve().then(() => __importStar(require("../core/history.js")));
-    const { lockContract, loadContracts, getContract, hasContract } = await Promise.resolve().then(() => __importStar(require("../core/contract.js")));
+    const { listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore } = await import("../core/storage.js");
+    const { diffSchemas } = await import("../core/diff.js");
+    const { reportDrift, ciReport, generateHtmlReport } = await import("../core/reporter.js");
+    const { extractTopLevelSchema } = await import("../core/schema.js");
+    const { generateTypesFromSnapshots } = await import("../utils/typegen.js");
+    const { compare } = await import("../core/tracker.js");
+    const { getHistory, getAllHistory } = await import("../core/history.js");
+    const { lockContract, unlockContract, loadContracts, getContract, hasContract } = await import("../core/contract.js");
     return {
-        listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore,
-        diffSchemas, reportDrift, ciReport, generateHtmlReport, extractTopLevelSchema, generateTypesFromSnapshots,
-        compare, getHistory, getAllHistory, lockContract, loadContracts, getContract, hasContract,
+        listSnapshots,
+        clearAllSnapshots,
+        clearSnapshot,
+        getSnapshot,
+        saveSnapshot,
+        loadStore,
+        diffSchemas,
+        reportDrift,
+        ciReport,
+        generateHtmlReport,
+        extractTopLevelSchema,
+        generateTypesFromSnapshots,
+        compare,
+        getHistory,
+        getAllHistory,
+        lockContract,
+        unlockContract,
+        loadContracts,
+        getContract,
+        hasContract,
     };
 }
 // ─── Utils ──────────────────────────────────────────────────────────────────
 async function fetchJson(url) {
     return new Promise((resolve, reject) => {
-        const client = url.startsWith("https") ? https_1.default : http_1.default;
+        const client = url.startsWith("https") ? https : http;
         const req = client.get(url, { headers: { Accept: "application/json" } }, (res) => {
             if (res.statusCode && res.statusCode >= 400) {
                 reject(new Error(`HTTP ${res.statusCode} from ${url}`));
@@ -108,7 +87,10 @@ async function fetchJson(url) {
             });
         });
         req.on("error", reject);
-        req.setTimeout(10000, () => { req.destroy(); reject(new Error("Request timed out")); });
+        req.setTimeout(10000, () => {
+            req.destroy();
+            reject(new Error("Request timed out"));
+        });
     });
 }
 function truncate(str, max) {
@@ -128,11 +110,11 @@ function relativeTime(iso) {
     return `${Math.floor(h / 24)}d ago`;
 }
 function box(title, lines, color = c.cyan) {
-    const width = Math.max(title.length + 4, ...lines.map(l => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4));
+    const width = Math.max(title.length + 4, ...lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4));
     const top = `${color}┌${"─".repeat(width - 2)}┐${c.reset}`;
     const mid = `${color}│${c.reset} ${c.bold}${title}${c.reset}${" ".repeat(width - title.length - 3)}${color}│${c.reset}`;
     const sep = `${color}├${"─".repeat(width - 2)}┤${c.reset}`;
-    const rows = lines.map(l => {
+    const rows = lines.map((l) => {
         const plain = l.replace(/\x1b\[[0-9;]*m/g, "");
         const pad = width - plain.length - 3;
         return `${color}│${c.reset} ${l}${" ".repeat(Math.max(0, pad))}${color}│${c.reset}`;
@@ -158,21 +140,30 @@ async function cmdInit() {
     const gitignore = path.join(process.cwd(), ".gitignore");
     console.log(BANNER);
     const steps = [
-        ["Creating .apidrift/ directory", () => {
+        [
+            "Creating .apidrift/ directory",
+            () => {
                 if (!fs.existsSync(dir))
                     fs.mkdirSync(dir, { recursive: true });
-            }],
-        ["Writing .apidrift/.gitkeep", () => {
+            },
+        ],
+        [
+            "Writing .apidrift/.gitkeep",
+            () => {
                 fs.writeFileSync(path.join(dir, ".gitkeep"), "", "utf-8");
-            }],
-        ["Adding .apidrift/ to .gitignore", () => {
+            },
+        ],
+        [
+            "Adding .apidrift/ to .gitignore",
+            () => {
                 if (fs.existsSync(gitignore)) {
                     const content = fs.readFileSync(gitignore, "utf-8");
                     if (!content.includes(".apidrift")) {
                         fs.appendFileSync(gitignore, "\n# apidrift — local API snapshots\n.apidrift/\n");
                     }
                 }
-            }],
+            },
+        ],
     ];
     for (const [label, fn] of steps) {
         process.stdout.write(`  ${c.dim}${label}...${c.reset} `);
@@ -194,7 +185,7 @@ async function cmdList(flags = {}) {
     const { listSnapshots, getHistory } = await getModules();
     const snapshots = listSnapshots();
     if (flags["--json"]) {
-        const result = snapshots.map(snap => {
+        const result = snapshots.map((snap) => {
             const hist = getHistory(snap.endpoint);
             const versions = hist?.entries.length ?? 1;
             return {
@@ -299,7 +290,7 @@ async function cmdDiff(url, flags) {
  * Zero latency, zero network calls, works completely offline.
  */
 async function cmdDiffWatchFile(url, flags) {
-    const { getStoreDirPath } = await Promise.resolve().then(() => __importStar(require("../core/storage.js")));
+    const { getStoreDirPath } = await import("../core/storage.js");
     const { extractTopLevelSchema, diffSchemas, getSnapshot, reportDrift } = await getModules();
     const snapshotsFile = path.join(getStoreDirPath(), "snapshots.json");
     if (!flags["--json"]) {
@@ -421,7 +412,12 @@ async function cmdWatch(url, flags) {
                 console.log(`  ${c.green}[${ts}]${c.reset} Baseline captured (${Object.keys(newSchema).length} fields)`);
             }
             if (outputFile) {
-                driftLog.push({ timestamp: new Date().toISOString(), poll: pollCount, event: "baseline_captured", fieldCount: Object.keys(newSchema).length });
+                driftLog.push({
+                    timestamp: new Date().toISOString(),
+                    poll: pollCount,
+                    event: "baseline_captured",
+                    fieldCount: Object.keys(newSchema).length,
+                });
                 fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
             }
             return;
@@ -511,7 +507,7 @@ async function cmdHistory(endpoint, flags = {}) {
         }
         else {
             const vNum = `v${i + 1}`;
-            const hasBreaking = entry.changes.some(ch => ch.impact === "BREAKING");
+            const hasBreaking = entry.changes.some((ch) => ch.impact === "BREAKING");
             const vColor = hasBreaking ? c.red : c.yellow;
             console.log(`  ${c.gray}${connector}─${c.reset} ${vColor}${vNum}${c.reset}  ${c.dim}${ts}${c.reset}  ${c.gray}${age}${c.reset}`);
             for (const change of entry.changes.slice(0, 5)) {
@@ -549,7 +545,7 @@ async function cmdCheck(flags = {}) {
         if (!hist)
             continue;
         for (const entry of hist.entries) {
-            const breakingInEntry = entry.changes.filter(ch => ch.impact === "BREAKING").length;
+            const breakingInEntry = entry.changes.filter((ch) => ch.impact === "BREAKING").length;
             totalBreaking += breakingInEntry;
             if (entry.changes.length > 0)
                 totalDrifts++;
@@ -599,7 +595,7 @@ async function cmdTypes(output) {
 }
 async function cmdClear(endpoint) {
     const { clearAllSnapshots, clearSnapshot } = await getModules();
-    const { clearHistory } = await Promise.resolve().then(() => __importStar(require("../core/history.js")));
+    const { clearHistory } = await import("../core/history.js"); // clearHistory not in getModules
     if (endpoint) {
         clearSnapshot(endpoint);
         clearHistory(endpoint);
@@ -654,7 +650,7 @@ async function cmdCompare(file1, file2, flags = {}) {
     }
 }
 async function cmdLock(url) {
-    const { getSnapshot, lockContract, hasContract } = await getModules();
+    const { getSnapshot, lockContract } = await getModules();
     if (!url) {
         console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift lock <url>${c.reset}`);
         process.exit(1);
@@ -671,6 +667,19 @@ async function cmdLock(url) {
     console.log(`  ${c.cyan}${url}${c.reset}`);
     console.log(`  ${c.gray}  ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked → saved to ${c.cyan}apidrift.contract.json${c.reset}`);
     console.log(`\n  ${c.gray}Any deviation from this schema will trigger a contract violation.${c.reset}\n`);
+}
+async function cmdUnlock(url) {
+    const { unlockContract, hasContract } = await getModules();
+    if (!url) {
+        console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift unlock <url>${c.reset}`);
+        process.exit(1);
+    }
+    if (!hasContract(url)) {
+        console.log(`\n  ${c.yellow}No contract found for:${c.reset} ${url}\n`);
+        return;
+    }
+    unlockContract(url);
+    console.log(`\n  ${c.green}✔${c.reset} Contract removed for:\n  ${c.cyan}${url}${c.reset}\n`);
 }
 async function cmdContracts(flags = {}) {
     const { loadContracts } = await getModules();
@@ -738,18 +747,23 @@ async function cmdInspect(url, flags = {}) {
         const opt = node.optional ? c.gray + "?" + c.reset : "";
         const nullable = node.nullable ? `${c.gray} | null${c.reset}` : "";
         let typeStr = `${c.yellow}${node.type}${c.reset}`;
-        if (node.type === "array" && node.items)
+        if (node.enum) {
+            typeStr = `${c.magenta}enum(${node.enum.join("|")})${c.reset}`;
+        }
+        else if (node.type === "array" && node.items) {
             typeStr = `${c.yellow}${node.items.type}[]${c.reset}`;
-        if (node.type === "object" && node.children) {
+        }
+        else if (node.type === "object" && node.children) {
             const childKeys = Object.keys(node.children).join(", ");
             typeStr = `${c.yellow}object${c.reset} ${c.gray}{ ${truncate(childKeys, 40)} }${c.reset}`;
         }
-        console.log(`  ${c.gray}  ${field}${c.reset}${opt}  ${typeStr}${nullable}`);
+        const pattern = node.pattern ? `  ${c.dim}(pattern: ${node.pattern})${c.reset}` : "";
+        console.log(`  ${c.gray}  ${field}${c.reset}${opt}  ${typeStr}${nullable}${pattern}`);
     }
     console.log("");
 }
 async function cmdGenerateMiddleware(framework) {
-    const { generateFastAPIMiddleware, generateDjangoMiddleware } = await Promise.resolve().then(() => __importStar(require("../plugins/codegen.js")));
+    const { generateFastAPIMiddleware, generateDjangoMiddleware } = await import("../plugins/codegen.js");
     const fw = (framework ?? "").toLowerCase();
     if (!fw || (fw !== "fastapi" && fw !== "django")) {
         console.error(`  ${c.red}Error:${c.reset} Framework required\n  Usage: ${c.cyan}apidrift generate-middleware <fastapi|django>${c.reset}`);
@@ -806,11 +820,16 @@ async function cmdExport(flags) {
 }
 function schemaNodeToJsonSchema(node) {
     switch (node.type) {
-        case "string": return node.nullable ? { type: ["string", "null"] } : { type: "string" };
-        case "number": return node.nullable ? { type: ["number", "null"] } : { type: "number" };
-        case "boolean": return node.nullable ? { type: ["boolean", "null"] } : { type: "boolean" };
-        case "null": return { type: "null" };
-        case "unknown": return {};
+        case "string":
+            return node.nullable ? { type: ["string", "null"] } : { type: "string" };
+        case "number":
+            return node.nullable ? { type: ["number", "null"] } : { type: "number" };
+        case "boolean":
+            return node.nullable ? { type: ["boolean", "null"] } : { type: "boolean" };
+        case "null":
+            return { type: "null" };
+        case "unknown":
+            return {};
         case "array": {
             const base = { type: "array" };
             if (node.items)
@@ -834,7 +853,8 @@ function schemaNodeToJsonSchema(node) {
                 return { oneOf: [base, { type: "null" }] };
             return base;
         }
-        default: return {};
+        default:
+            return {};
     }
 }
 function exportAsJsonSchema(snapshots) {
@@ -871,7 +891,9 @@ function exportAsOpenAPI(snapshots) {
         try {
             urlPath = new URL(snap.endpoint).pathname;
         }
-        catch { /* relative URL — use as-is */ }
+        catch {
+            /* relative URL — use as-is */
+        }
         const props = {};
         const required = [];
         for (const [field, node] of Object.entries(snap.schema)) {
@@ -1001,7 +1023,7 @@ async function cmdStats(flags) {
         return;
     }
     const all = getAllHistory();
-    const stats = snapshots.map(snap => {
+    const stats = snapshots.map((snap) => {
         const hist = all.history[snap.endpoint];
         const entries = hist?.entries ?? [];
         const versions = entries.length;
@@ -1070,12 +1092,11 @@ async function cmdStats(flags) {
     console.log("");
 }
 // ─── Help ───────────────────────────────────────────────────────────────────
-async function cmdCiGen() {
-    const fs = await Promise.resolve().then(() => __importStar(require('fs')));
-    const path = await Promise.resolve().then(() => __importStar(require('path')));
-    const workflowDir = path.join(process.cwd(), '.github', 'workflows');
-    const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
-    const yaml = `name: apidrift-check
+async function cmdCiGen(platform = "github") {
+    if (platform === "github") {
+        const workflowDir = path.join(process.cwd(), ".github", "workflows");
+        const workflowFile = path.join(workflowDir, "apidrift-check.yml");
+        const yaml = `name: apidrift-check
 
 on:
   pull_request:
@@ -1106,12 +1127,34 @@ jobs:
         env:
           APIDRIFT_CI: 1
 `;
-    if (!fs.existsSync(workflowDir)) {
-        fs.mkdirSync(workflowDir, { recursive: true });
+        if (!fs.existsSync(workflowDir)) {
+            fs.mkdirSync(workflowDir, { recursive: true });
+        }
+        fs.writeFileSync(workflowFile, yaml, "utf-8");
+        console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
+        console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
     }
-    fs.writeFileSync(workflowFile, yaml, "utf-8");
-    console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
-    console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
+    else if (platform === "gitlab") {
+        const gitlabCiFile = path.join(process.cwd(), ".gitlab-ci.yml");
+        const yaml = `apidrift-check:
+  image: node:20
+  script:
+    - npm install
+    - npx apidrift check --json
+  variables:
+    APIDRIFT_CI: "1"
+  only:
+    - merge_requests
+    - main
+    - master
+`;
+        fs.writeFileSync(gitlabCiFile, yaml, "utf-8");
+        console.log(`\n  ${c.green}✔  GitLab CI configuration generated:${c.reset} .gitlab-ci.yml`);
+    }
+    else {
+        console.error(`\n  ${c.red}Error:${c.reset} Unsupported platform: ${platform}`);
+        console.log(`  Supported: github, gitlab\n`);
+    }
 }
 async function cmdReport(flags = {}) {
     const { generateHtmlReport } = await getModules();
@@ -1137,6 +1180,7 @@ function printHelp() {
         ["compare <f1> <f2>", "Diff two local JSON files"],
         ["types [output]", "Generate TypeScript types from snapshots"],
         ["lock <url>", "Lock current schema as a contract"],
+        ["unlock <url>", "Remove a locked contract"],
         ["contracts", "List all locked contracts"],
         ["check", "CI mode: exit 1 if breaking drift exists"],
         ["clear [url]", "Remove snapshot(s) and history"],
@@ -1244,6 +1288,9 @@ async function main() {
         case "lock":
             await cmdLock(args[1]);
             break;
+        case "unlock":
+            await cmdUnlock(args[1]);
+            break;
         case "contracts":
             await cmdContracts(flags);
             break;
@@ -1251,7 +1298,7 @@ async function main() {
             await cmdReport(flags);
             break;
         case "ci-gen":
-            await cmdCiGen();
+            await cmdCiGen(args[1]);
             break;
         case "check": {
             const code = await cmdCheck(flags);
@@ -1262,7 +1309,7 @@ async function main() {
             await cmdClear(args[1]);
             break;
         case "dashboard": {
-            const { runDashboard } = await Promise.resolve().then(() => __importStar(require("./dashboard.js")));
+            const { runDashboard } = await import("./dashboard.js");
             await runDashboard();
             break;
         }

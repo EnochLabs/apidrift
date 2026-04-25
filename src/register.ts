@@ -13,7 +13,9 @@ patchFetch({
   filter,
   onBreaking: (result) => {
     if (process.env.APIDRIFT_CI === "1") {
-      console.error(`\n[apidrift] FATAL: Breaking drift in ${result.endpoint} — exiting (APIDRIFT_CI=1)\n`);
+      console.error(
+        `\n[apidrift] FATAL: Breaking drift in ${result.endpoint} — exiting (APIDRIFT_CI=1)\n`
+      );
       process.exit(1);
     }
   },

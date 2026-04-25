@@ -1,13 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.extractSchema = extractSchema;
-exports.mergeMetadata = mergeMetadata;
-exports.extractTopLevelSchema = extractTopLevelSchema;
 const PATTERNS = {
     uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     isoDate: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/,
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     url: /^https?:\/\/[^\s/$.?#].[^\s]*$/i,
+    ipv4: /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/,
+    ipv6: /^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$/,
+    phone: /^\+?[1-9]\d{1,14}$/,
+    hexColor: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
 };
 /**
  * Extract a schema "shape" from a JSON value.
@@ -16,7 +15,7 @@ const PATTERNS = {
  * threaded through every recursive call to detect circular references and
  * return `{ type: "unknown" }` instead of throwing a RangeError.
  */
-function extractSchema(value, seen = new WeakSet()) {
+export function extractSchema(value, seen = new WeakSet()) {
     if (value === null)
         return { type: "null" };
     if (value === undefined)
@@ -55,7 +54,7 @@ function extractSchema(value, seen = new WeakSet()) {
         const merged = mergeSchemas(itemSchemas);
         // Enum detection for strings in arrays
         if (merged.type === "string" && value.length >= 3) {
-            const strings = value.filter(v => typeof v === "string");
+            const strings = value.filter((v) => typeof v === "string");
             const unique = Array.from(new Set(strings));
             // If we have many items but few unique values, it's likely an enum
             if (unique.length > 0 && unique.length <= 5 && unique.length < value.length / 2) {
@@ -72,7 +71,25 @@ function extractSchema(value, seen = new WeakSet()) {
         seen.add(obj);
         const children = {};
         for (const key of Object.keys(obj)) {
-            children[key] = extractSchema(obj[key], seen);
+            const node = extractSchema(obj[key], seen);
+            // Heuristic for sensitive fields
+            const sensitiveKeywords = [
+                "password",
+                "token",
+                "email",
+                "secret",
+                "card",
+                "ssn",
+                "phone",
+                "key",
+                "credential",
+                "auth",
+            ];
+            const lowerKey = key.toLowerCase();
+            if (sensitiveKeywords.some((kw) => lowerKey.includes(kw))) {
+                node.sensitive = true;
+            }
+            children[key] = node;
         }
         return { type: "object", children };
     }
@@ -95,9 +112,7 @@ function mergeSchemas(schemas) {
             const allKeys = new Set(schemas.flatMap((s) => Object.keys(s.children ?? {})));
             const children = {};
             for (const key of allKeys) {
-                const childSchemas = schemas
-                    .filter((s) => s.children?.[key])
-                    .map((s) => s.children[key]);
+                const childSchemas = schemas.filter((s) => s.children?.[key]).map((s) => s.children[key]);
                 const merged = mergeSchemas(childSchemas);
                 // Mark as optional if not all schemas have this key
                 if (childSchemas.length < schemas.length)
@@ -108,12 +123,12 @@ function mergeSchemas(schemas) {
         }
         // Merge patterns and enums if they are consistent
         const merged = { type: schemas[0].type };
-        const patterns = new Set(schemas.map(s => s.pattern).filter(Boolean));
+        const patterns = new Set(schemas.map((s) => s.pattern).filter(Boolean));
         if (patterns.size === 1)
             merged.pattern = Array.from(patterns)[0];
-        const enums = schemas.map(s => s.enum).filter(Boolean);
+        const enums = schemas.map((s) => s.enum).filter(Boolean);
         if (enums.length === schemas.length) {
-            const allValues = new Set(enums.flatMap(e => e));
+            const allValues = new Set(enums.flatMap((e) => e));
             merged.enum = Array.from(allValues).sort();
         }
         return merged;
@@ -129,7 +144,7 @@ function mergeSchemas(schemas) {
 /**
  * Merge metadata like _samples from existing node into new node
  */
-function mergeMetadata(newNode, oldNode) {
+export function mergeMetadata(newNode, oldNode) {
     if (!oldNode)
         return;
     // Merge samples
@@ -151,7 +166,10 @@ function mergeMetadata(newNode, oldNode) {
         }
     }
     // Recurse into objects
-    if (newNode.type === "object" && oldNode.type === "object" && newNode.children && oldNode.children) {
+    if (newNode.type === "object" &&
+        oldNode.type === "object" &&
+        newNode.children &&
+        oldNode.children) {
         for (const key of Object.keys(newNode.children)) {
             mergeMetadata(newNode.children[key], oldNode.children[key]);
         }
@@ -164,7 +182,7 @@ function mergeMetadata(newNode, oldNode) {
 /**
  * Extract top-level schema from a parsed JSON body
  */
-function extractTopLevelSchema(body) {
+export function extractTopLevelSchema(body) {
     const node = extractSchema(body);
     if (node.type === "object" && node.children) {
         return node.children;

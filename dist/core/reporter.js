@@ -1,43 +1,3 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.reportDrift = reportDrift;
-exports.reportFirstSeen = reportFirstSeen;
-exports.reportNoDrift = reportNoDrift;
-exports.ciReport = ciReport;
-exports.generateHtmlReport = generateHtmlReport;
 // ANSI color codes — works in Node.js terminals
 const c = {
     reset: "\x1b[0m",
@@ -72,7 +32,7 @@ function impactPrefix(impact) {
             return `${c.cyan}~${c.reset}`;
     }
 }
-function reportDrift(result) {
+export function reportDrift(result) {
     if (!result.hasChanges)
         return;
     console.log("");
@@ -132,10 +92,10 @@ function printChange(change) {
         console.log(`    ${prefix} ${path}`);
     }
 }
-function reportFirstSeen(endpoint) {
+export function reportFirstSeen(endpoint) {
     console.log(`${c.gray}[apidrift] First seen: ${c.cyan}${endpoint}${c.reset}${c.gray} — snapshot saved${c.reset}`);
 }
-function reportNoDrift(endpoint) {
+export function reportNoDrift(endpoint) {
     // Silent by default — only log if verbose
     if (process.env.APIDRIFT_VERBOSE) {
         console.log(`${c.gray}[apidrift] No drift: ${c.green}${endpoint}${c.reset}`);
@@ -145,7 +105,7 @@ function reportNoDrift(endpoint) {
  * Exit-code reporter: for CI/CD use.
  * Returns 1 if any breaking changes exist.
  */
-function ciReport(results) {
+export function ciReport(results) {
     const breaking = results.filter((r) => r.hasBreaking);
     const changed = results.filter((r) => r.hasChanges);
     if (breaking.length > 0) {
@@ -169,10 +129,10 @@ function ciReport(results) {
 /**
  * Generate a beautiful, interactive static HTML report.
  */
-async function generateHtmlReport(outputPath) {
-    const fs = await Promise.resolve().then(() => __importStar(require('fs')));
-    const { listSnapshots } = await Promise.resolve().then(() => __importStar(require('./storage.js')));
-    const { getAllHistory } = await Promise.resolve().then(() => __importStar(require('./history.js')));
+export async function generateHtmlReport(outputPath) {
+    const fs = await import("fs");
+    const { listSnapshots } = await import("./storage.js");
+    const { getAllHistory } = await import("./history.js");
     const snapshots = listSnapshots();
     const history = getAllHistory();
     const data = {
@@ -209,7 +169,7 @@ async function generateHtmlReport(outputPath) {
         </header>
 
         <main>
-            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Tracked Endpoints</div>
                     <div class="text-3xl font-bold text-gray-800">${snapshots.length}</div>
@@ -220,75 +180,122 @@ async function generateHtmlReport(outputPath) {
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Breaking Changes</div>
-                    <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0), 0)}</div>
+                    <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length, 0), 0)}</div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="text-sm font-medium text-gray-400 uppercase mb-1">Avg Latency</div>
+                    <div class="text-3xl font-bold text-cyan-600">${(snapshots.reduce((acc, s) => acc + (s.avgLatency || 0), 0) / (snapshots.filter((s) => s.avgLatency).length || 1)).toFixed(1)}ms</div>
                 </div>
             </section>
 
-            <section class="space-y-8">
+            <div class="mb-8">
+                <input type="text" id="endpointSearch" onkeyup="filterEndpoints()" placeholder="Search endpoints..." class="w-full p-4 rounded-xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none">
+            </div>
+
+            <section class="space-y-8" id="endpointList">
                 <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
-                ${snapshots.map((s, idx) => {
+                ${snapshots
+        .map((s, idx) => {
         const h = history.history[s.endpoint] || { entries: [] };
-        const breakingCount = h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0);
+        const breakingCount = h.entries.reduce((a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length, 0);
         const stabilityScore = Math.max(0, 100 - (h.entries.length - 1) * 5 - breakingCount * 15);
         return `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden endpoint-card" data-endpoint="${s.endpoint}">
                         <div class="p-6 border-b border-gray-50 flex justify-between items-start">
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-bold text-cyan-600 truncate mb-1" title="${s.endpoint}">${s.endpoint}</h3>
                                 <div class="flex items-center space-x-4 text-sm text-gray-500">
                                     <span>${Object.keys(s.schema).length} fields</span>
                                     <span>${s.responseCount} responses</span>
+                                    <span>${s.avgLatency ? s.avgLatency.toFixed(1) + "ms avg" : "N/A latency"}</span>
                                     <span>Last seen ${new Date(s.capturedAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                             <div class="ml-4 flex items-center space-x-4">
                                 <div class="text-right">
                                     <div class="text-xs font-medium text-gray-400 uppercase">Stability</div>
-                                    <div class="text-lg font-bold ${stabilityScore > 80 ? 'text-green-500' : stabilityScore > 50 ? 'text-yellow-500' : 'text-red-500'}">${stabilityScore}%</div>
+                                    <div class="text-lg font-bold ${stabilityScore > 80 ? "text-green-500" : stabilityScore > 50 ? "text-yellow-500" : "text-red-500"}">${stabilityScore}%</div>
                                 </div>
                                 <button onclick="toggleDetails('details-${idx}')" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold transition-colors">Details</button>
                             </div>
                         </div>
                         
                         <div id="details-${idx}" class="hidden p-6 bg-gray-50 border-t border-gray-100">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Schema</h4>
+                                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                        <div class="max-h-80 overflow-y-auto p-4 text-xs font-mono">
+                                            ${Object.entries(s.schema)
+            .map(([field, node]) => {
+            const opt = node.optional
+                ? '<span class="text-gray-400">?</span>'
+                : "";
+            const nullable = node.nullable
+                ? '<span class="text-gray-400"> | null</span>'
+                : "";
+            const sensitive = node.sensitive
+                ? ' <span class="bg-red-100 text-red-600 px-1 rounded text-[10px] font-bold">SENSITIVE</span>'
+                : "";
+            let typeStr = `<span class="text-yellow-600">${node.type}</span>`;
+            if (node.enum)
+                typeStr = `<span class="text-purple-600">enum(${node.enum.join("|")})</span>`;
+            else if (node.type === "array" && node.items)
+                typeStr = `<span class="text-yellow-600">${node.items.type}[]</span>`;
+            return `<div class="mb-1"><span class="text-cyan-700 font-bold">${field}</span>${opt}: ${typeStr}${nullable}${sensitive}</div>`;
+        })
+            .join("")}
+                                        </div>
+                                    </div>
+                                </div>
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Schema Evolution</h4>
                                     <canvas id="chart-${idx}" class="w-full h-48"></canvas>
                                 </div>
                                 <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Latency (ms)</h4>
+                                    <canvas id="latency-chart-${idx}" class="w-full h-48"></canvas>
+                                </div>
+                                <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Change History</h4>
                                     <div class="space-y-4 max-h-80 overflow-y-auto pr-2">
-                                        ${h.entries.slice().reverse().map((e, vIdx) => {
+                                        ${h.entries
+            .slice()
+            .reverse()
+            .map((e, vIdx) => {
             const vNum = h.entries.length - vIdx;
             return `
-                                            <div class="relative pl-6 pb-2 border-l-2 ${e.changes.some(c => c.impact === 'BREAKING') ? 'border-red-200' : 'border-gray-200'}">
-                                                <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full ${e.changes.some(c => c.impact === 'BREAKING') ? 'bg-red-400' : 'bg-gray-300'} border-2 border-white"></div>
+                                            <div class="relative pl-6 pb-2 border-l-2 ${e.changes.some((c) => c.impact === "BREAKING") ? "border-red-200" : "border-gray-200"}">
+                                                <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full ${e.changes.some((c) => c.impact === "BREAKING") ? "bg-red-400" : "bg-gray-300"} border-2 border-white"></div>
                                                 <div class="flex justify-between items-baseline mb-1">
                                                     <span class="font-bold text-sm">Version ${vNum}</span>
                                                     <span class="text-xs text-gray-400">${new Date(e.timestamp).toLocaleString()}</span>
                                                 </div>
-                                                ${e.changes.length === 0 ? '<p class="text-xs text-gray-400 italic">Initial baseline captured</p>' : ''}
+                                                ${e.changes.length === 0 ? '<p class="text-xs text-gray-400 italic">Initial baseline captured</p>' : ""}
                                                 <ul class="space-y-1">
-                                                    ${e.changes.map(c => `
+                                                    ${e.changes
+                .map((c) => `
                                                         <li class="text-xs flex items-start">
-                                                            <span class="mr-2 ${c.impact === 'BREAKING' ? 'text-red-500' : 'text-yellow-500'} font-bold">${c.impact === 'BREAKING' ? '✖' : '△'}</span>
+                                                            <span class="mr-2 ${c.impact === "BREAKING" ? "text-red-500" : "text-yellow-500"} font-bold">${c.impact === "BREAKING" ? "✖" : "△"}</span>
                                                             <span class="text-gray-600">
                                                                 <code class="bg-gray-100 px-1 rounded">${c.path}</code>: ${c.description}
                                                             </span>
                                                         </li>
-                                                    `).join('')}
+                                                    `)
+                .join("")}
                                                 </ul>
                                             </div>
                                             `;
-        }).join('')}
+        })
+            .join("")}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     `;
-    }).join('')}
+    })
+        .join("")}
             </section>
         </main>
         
@@ -300,12 +307,26 @@ async function generateHtmlReport(outputPath) {
     <script>
         const appData = ${JSON.stringify(data)};
 
+        function filterEndpoints() {
+            const query = document.getElementById('endpointSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.endpoint-card');
+            cards.forEach(card => {
+                const endpoint = card.getAttribute('data-endpoint').toLowerCase();
+                if (endpoint.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
         function toggleDetails(id) {
             const el = document.getElementById(id);
             el.classList.toggle('hidden');
             if (!el.classList.contains('hidden')) {
                 const idx = id.split('-')[1];
                 renderChart(idx);
+                renderLatencyChart(idx);
             }
         }
 
@@ -314,7 +335,7 @@ async function generateHtmlReport(outputPath) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             const h = appData.history.history[appData.snapshots[idx].endpoint];
             
-            if (window['chart_obj_' + idx]) return;
+            if (window['chart_obj_' + idx] || !h) return;
 
             window['chart_obj_' + idx] = new Chart(ctx, {
                 type: 'line',
@@ -339,10 +360,41 @@ async function generateHtmlReport(outputPath) {
                 }
             });
         }
+
+        function renderLatencyChart(idx) {
+            const canvasId = 'latency-chart-' + idx;
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const snap = appData.snapshots[idx];
+
+            if (window['latency_chart_obj_' + idx] || !snap.latencyHistory) return;
+
+            window['latency_chart_obj_' + idx] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: snap.latencyHistory.map((_, i) => i + 1),
+                    datasets: [{
+                        label: 'Latency',
+                        data: snap.latencyHistory,
+                        borderColor: '#10b981',
+                        backgroundColor: '#10b98122',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true },
+                        x: { display: false }
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>
   `.trim();
-    fs.writeFileSync(outputPath, html, 'utf-8');
+    fs.writeFileSync(outputPath, html, "utf-8");
 }
 //# sourceMappingURL=reporter.js.map

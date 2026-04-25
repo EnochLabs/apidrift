@@ -1,1 +1,1 @@
-{"version":3,"file":"codegen.d.ts","sourceRoot":"","sources":["../../src/plugins/codegen.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,wBAAgB,yBAAyB,CAAC,OAAO,GAAE;IACjD,SAAS,CAAC,EAAE,MAAM,CAAC;CACf,GAAG,MAAM,CA2Gd;AAED,wBAAgB,wBAAwB,IAAI,MAAM,CAyDjD"}
+{"version":3,"file":"codegen.d.ts","sourceRoot":"","sources":["../../src/plugins/codegen.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,wBAAgB,yBAAyB,CACvC,OAAO,GAAE;IACP,SAAS,CAAC,EAAE,MAAM,CAAC;CACf,GACL,MAAM,CA2GR;AAED,wBAAgB,wBAAwB,IAAI,MAAM,CAyDjD"}

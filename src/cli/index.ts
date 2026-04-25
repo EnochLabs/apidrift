@@ -47,11 +47,29 @@ async function getModules() {
   const { generateTypesFromSnapshots } = await import("../utils/typegen.js");
   const { compare } = await import("../core/tracker.js");
   const { getHistory, getAllHistory } = await import("../core/history.js");
-  const { lockContract, unlockContract, loadContracts, getContract, hasContract } = await import("../core/contract.js");
+  const { lockContract, unlockContract, loadContracts, getContract, hasContract } =
+    await import("../core/contract.js");
   return {
-    listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore,
-    diffSchemas, reportDrift, ciReport, generateHtmlReport, extractTopLevelSchema, generateTypesFromSnapshots,
-    compare, getHistory, getAllHistory, lockContract, unlockContract, loadContracts, getContract, hasContract,
+    listSnapshots,
+    clearAllSnapshots,
+    clearSnapshot,
+    getSnapshot,
+    saveSnapshot,
+    loadStore,
+    diffSchemas,
+    reportDrift,
+    ciReport,
+    generateHtmlReport,
+    extractTopLevelSchema,
+    generateTypesFromSnapshots,
+    compare,
+    getHistory,
+    getAllHistory,
+    lockContract,
+    unlockContract,
+    loadContracts,
+    getContract,
+    hasContract,
   };
 }
 
@@ -67,12 +85,18 @@ async function fetchJson(url: string): Promise<unknown> {
       let data = "";
       res.on("data", (chunk: any) => (data += chunk.toString()));
       res.on("end", () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error(`Response from ${url} is not valid JSON`)); }
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          reject(new Error(`Response from ${url} is not valid JSON`));
+        }
       });
     });
     req.on("error", reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error("Request timed out")); });
+    req.setTimeout(10000, () => {
+      req.destroy();
+      reject(new Error("Request timed out"));
+    });
   });
 }
 
@@ -92,11 +116,14 @@ function relativeTime(iso: string): string {
 }
 
 function box(title: string, lines: string[], color = c.cyan): string {
-  const width = Math.max(title.length + 4, ...lines.map(l => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4));
+  const width = Math.max(
+    title.length + 4,
+    ...lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4)
+  );
   const top = `${color}┌${"─".repeat(width - 2)}┐${c.reset}`;
   const mid = `${color}│${c.reset} ${c.bold}${title}${c.reset}${" ".repeat(width - title.length - 3)}${color}│${c.reset}`;
   const sep = `${color}├${"─".repeat(width - 2)}┤${c.reset}`;
-  const rows = lines.map(l => {
+  const rows = lines.map((l) => {
     const plain = l.replace(/\x1b\[[0-9;]*m/g, "");
     const pad = width - plain.length - 3;
     return `${color}│${c.reset} ${l}${" ".repeat(Math.max(0, pad))}${color}│${c.reset}`;
@@ -109,7 +136,11 @@ function box(title: string, lines: string[], color = c.cyan): string {
  * Emit output: if --json flag is set, write JSON to stdout; otherwise print
  * the human-readable console output via the provided printFn.
  */
-function outputOrJson(jsonPayload: unknown, printFn: () => void, flags: Record<string, string | boolean>): void {
+function outputOrJson(
+  jsonPayload: unknown,
+  printFn: () => void,
+  flags: Record<string, string | boolean>
+): void {
   if (flags["--json"]) {
     process.stdout.write(JSON.stringify(jsonPayload, null, 2) + "\n");
   } else {
@@ -126,20 +157,29 @@ async function cmdInit(): Promise<void> {
   console.log(BANNER);
 
   const steps: Array<[string, () => void]> = [
-    ["Creating .apidrift/ directory", () => {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    }],
-    ["Writing .apidrift/.gitkeep", () => {
-      fs.writeFileSync(path.join(dir, ".gitkeep"), "", "utf-8");
-    }],
-    ["Adding .apidrift/ to .gitignore", () => {
-      if (fs.existsSync(gitignore)) {
-        const content = fs.readFileSync(gitignore, "utf-8");
-        if (!content.includes(".apidrift")) {
-          fs.appendFileSync(gitignore, "\n# apidrift — local API snapshots\n.apidrift/\n");
+    [
+      "Creating .apidrift/ directory",
+      () => {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      },
+    ],
+    [
+      "Writing .apidrift/.gitkeep",
+      () => {
+        fs.writeFileSync(path.join(dir, ".gitkeep"), "", "utf-8");
+      },
+    ],
+    [
+      "Adding .apidrift/ to .gitignore",
+      () => {
+        if (fs.existsSync(gitignore)) {
+          const content = fs.readFileSync(gitignore, "utf-8");
+          if (!content.includes(".apidrift")) {
+            fs.appendFileSync(gitignore, "\n# apidrift — local API snapshots\n.apidrift/\n");
+          }
         }
-      }
-    }],
+      },
+    ],
   ];
 
   for (const [label, fn] of steps) {
@@ -157,7 +197,9 @@ async function cmdInit(): Promise<void> {
   console.log(`  ${c.cyan}track(url, responseBody)${c.reset}\n`);
   console.log(`  ${c.gray}# Watch a live endpoint:${c.reset}`);
   console.log(`  ${c.cyan}apidrift watch https://api.example.com/users${c.reset}\n`);
-  console.log(`  ${c.gray}Run ${c.reset}${c.cyan}apidrift --help${c.reset}${c.gray} for all commands.${c.reset}\n`);
+  console.log(
+    `  ${c.gray}Run ${c.reset}${c.cyan}apidrift --help${c.reset}${c.gray} for all commands.${c.reset}\n`
+  );
 }
 
 async function cmdList(flags: Record<string, string | boolean> = {}): Promise<void> {
@@ -165,7 +207,7 @@ async function cmdList(flags: Record<string, string | boolean> = {}): Promise<vo
   const snapshots = listSnapshots();
 
   if (flags["--json"]) {
-    const result = snapshots.map(snap => {
+    const result = snapshots.map((snap) => {
       const hist = getHistory(snap.endpoint);
       const versions = hist?.entries.length ?? 1;
       return {
@@ -183,12 +225,16 @@ async function cmdList(flags: Record<string, string | boolean> = {}): Promise<vo
 
   if (snapshots.length === 0) {
     console.log(`\n  ${c.yellow}No endpoints tracked yet.${c.reset}`);
-    console.log(`\n  ${c.gray}Add to your app:${c.reset}  ${c.cyan}import "apidrift/register"${c.reset}`);
+    console.log(
+      `\n  ${c.gray}Add to your app:${c.reset}  ${c.cyan}import "apidrift/register"${c.reset}`
+    );
     console.log(`  ${c.gray}Or track live:  ${c.reset}  ${c.cyan}apidrift watch <url>${c.reset}\n`);
     return;
   }
 
-  console.log(`\n  ${c.bold}Tracked Endpoints${c.reset}  ${c.gray}(${snapshots.length} total)${c.reset}\n`);
+  console.log(
+    `\n  ${c.bold}Tracked Endpoints${c.reset}  ${c.gray}(${snapshots.length} total)${c.reset}\n`
+  );
 
   for (const snap of snapshots) {
     const hist = getHistory(snap.endpoint);
@@ -197,9 +243,10 @@ async function cmdList(flags: Record<string, string | boolean> = {}): Promise<vo
     const age = relativeTime(snap.capturedAt);
     const driftCount = Math.max(0, versions - 1);
 
-    const driftLabel = driftCount > 0
-      ? `${c.yellow}${driftCount} drift${driftCount === 1 ? "" : "s"}${c.reset}`
-      : `${c.green}stable${c.reset}`;
+    const driftLabel =
+      driftCount > 0
+        ? `${c.yellow}${driftCount} drift${driftCount === 1 ? "" : "s"}${c.reset}`
+        : `${c.green}stable${c.reset}`;
 
     console.log(`  ${c.cyan}${c.bold}${truncate(snap.endpoint, 70)}${c.reset}`);
     console.log(
@@ -210,10 +257,13 @@ async function cmdList(flags: Record<string, string | boolean> = {}): Promise<vo
 }
 
 async function cmdDiff(url: string, flags: Record<string, string | boolean>): Promise<void> {
-  const { extractTopLevelSchema, diffSchemas, getSnapshot, saveSnapshot, reportDrift } = await getModules();
+  const { extractTopLevelSchema, diffSchemas, getSnapshot, saveSnapshot, reportDrift } =
+    await getModules();
 
   if (!url) {
-    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift diff <url>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift diff <url>${c.reset}`
+    );
     process.exit(1);
   }
 
@@ -246,7 +296,9 @@ async function cmdDiff(url: string, flags: Record<string, string | boolean>): Pr
   if (!existing) {
     saveSnapshot(url, newSchema);
     if (flags["--json"]) {
-      process.stdout.write(JSON.stringify({ firstSnapshot: true, endpoint: url, schema: newSchema }, null, 2) + "\n");
+      process.stdout.write(
+        JSON.stringify({ firstSnapshot: true, endpoint: url, schema: newSchema }, null, 2) + "\n"
+      );
     } else {
       console.log(`\n  ${c.green}✔${c.reset} First snapshot saved for this endpoint.`);
       console.log(`  ${c.gray}Run again to detect drift.${c.reset}\n`);
@@ -262,14 +314,18 @@ async function cmdDiff(url: string, flags: Record<string, string | boolean>): Pr
   }
 
   if (!result.hasChanges) {
-    console.log(`\n  ${c.green}✔ No drift detected.${c.reset}  ${c.gray}Schema unchanged.${c.reset}\n`);
+    console.log(
+      `\n  ${c.green}✔ No drift detected.${c.reset}  ${c.gray}Schema unchanged.${c.reset}\n`
+    );
   } else {
     reportDrift(result);
     if (flags["--save"]) {
       saveSnapshot(url, newSchema);
       console.log(`  ${c.gray}Snapshot updated.${c.reset}\n`);
     } else {
-      console.log(`  ${c.gray}Tip: use ${c.reset}${c.cyan}--save${c.reset}${c.gray} to update the snapshot.${c.reset}\n`);
+      console.log(
+        `  ${c.gray}Tip: use ${c.reset}${c.cyan}--save${c.reset}${c.gray} to update the snapshot.${c.reset}\n`
+      );
     }
   }
 }
@@ -279,7 +335,10 @@ async function cmdDiff(url: string, flags: Record<string, string | boolean>): Pr
  * by any other process (e.g. your running app) and immediately shows the diff.
  * Zero latency, zero network calls, works completely offline.
  */
-async function cmdDiffWatchFile(url: string, flags: Record<string, string | boolean>): Promise<void> {
+async function cmdDiffWatchFile(
+  url: string,
+  flags: Record<string, string | boolean>
+): Promise<void> {
   const { getStoreDirPath } = await import("../core/storage.js");
   const { extractTopLevelSchema, diffSchemas, getSnapshot, reportDrift } = await getModules();
 
@@ -306,7 +365,9 @@ async function cmdDiffWatchFile(url: string, flags: Record<string, string | bool
         // First read — record baseline silently
         lastChecksum = raw;
         if (!flags["--json"]) {
-          console.log(`  ${c.green}✔${c.reset} Baseline loaded (${Object.keys(existing.schema).length} fields)`);
+          console.log(
+            `  ${c.green}✔${c.reset} Baseline loaded (${Object.keys(existing.schema).length} fields)`
+          );
         }
         return;
       }
@@ -362,10 +423,13 @@ async function cmdDiffWatchFile(url: string, flags: Record<string, string | bool
 }
 
 async function cmdWatch(url: string, flags: Record<string, string | boolean>): Promise<void> {
-  const { extractTopLevelSchema, diffSchemas, getSnapshot, saveSnapshot, reportDrift } = await getModules();
+  const { extractTopLevelSchema, diffSchemas, getSnapshot, saveSnapshot, reportDrift } =
+    await getModules();
 
   if (!url) {
-    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift watch <url> [--interval 5] [--output drift-log.json]${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift watch <url> [--interval 5] [--output drift-log.json]${c.reset}`
+    );
     process.exit(1);
   }
 
@@ -414,10 +478,17 @@ async function cmdWatch(url: string, flags: Record<string, string | boolean>): P
     if (!existing) {
       saveSnapshot(url, newSchema);
       if (!flags["--json"]) {
-        console.log(`  ${c.green}[${ts}]${c.reset} Baseline captured (${Object.keys(newSchema).length} fields)`);
+        console.log(
+          `  ${c.green}[${ts}]${c.reset} Baseline captured (${Object.keys(newSchema).length} fields)`
+        );
       }
       if (outputFile) {
-        driftLog.push({ timestamp: new Date().toISOString(), poll: pollCount, event: "baseline_captured", fieldCount: Object.keys(newSchema).length });
+        driftLog.push({
+          timestamp: new Date().toISOString(),
+          poll: pollCount,
+          event: "baseline_captured",
+          fieldCount: Object.keys(newSchema).length,
+        });
         fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
       }
       return;
@@ -440,7 +511,9 @@ async function cmdWatch(url: string, flags: Record<string, string | boolean>): P
       }
     } else {
       if (!flags["--json"]) {
-        process.stdout.write(`  ${c.gray}[${ts}] poll #${pollCount} — ${c.green}no drift${c.reset}       \r`);
+        process.stdout.write(
+          `  ${c.gray}[${ts}] poll #${pollCount} — ${c.green}no drift${c.reset}       \r`
+        );
       }
     }
   }
@@ -451,7 +524,9 @@ async function cmdWatch(url: string, flags: Record<string, string | boolean>): P
   process.on("SIGINT", () => {
     clearInterval(timer);
     if (!flags["--json"]) {
-      console.log(`\n\n  ${c.gray}Watch stopped. Run ${c.cyan}apidrift list${c.gray} to see all endpoints.${c.reset}\n`);
+      console.log(
+        `\n\n  ${c.gray}Watch stopped. Run ${c.cyan}apidrift list${c.gray} to see all endpoints.${c.reset}\n`
+      );
     }
     if (outputFile && driftLog.length > 0) {
       fs.writeFileSync(outputFile, JSON.stringify(driftLog, null, 2), "utf-8");
@@ -463,7 +538,10 @@ async function cmdWatch(url: string, flags: Record<string, string | boolean>): P
   });
 }
 
-async function cmdHistory(endpoint: string, flags: Record<string, string | boolean> = {}): Promise<void> {
+async function cmdHistory(
+  endpoint: string,
+  flags: Record<string, string | boolean> = {}
+): Promise<void> {
   const { getHistory, getAllHistory } = await getModules();
 
   if (!endpoint) {
@@ -479,13 +557,17 @@ async function cmdHistory(endpoint: string, flags: Record<string, string | boole
       console.log(`\n  ${c.yellow}No history yet.${c.reset}\n`);
       return;
     }
-    console.log(`\n  ${c.bold}Drift History${c.reset}  ${c.gray}(${entries.length} endpoints)${c.reset}\n`);
+    console.log(
+      `\n  ${c.bold}Drift History${c.reset}  ${c.gray}(${entries.length} endpoints)${c.reset}\n`
+    );
     for (const eh of entries) {
       const versions = eh.entries.length;
       const drifts = Math.max(0, versions - 1);
       const last = eh.entries[eh.entries.length - 1];
       console.log(`  ${c.cyan}${truncate(eh.endpoint, 65)}${c.reset}`);
-      console.log(`  ${c.gray}  ${versions} version${versions === 1 ? "" : "s"} · ${drifts} drift event${drifts === 1 ? "" : "s"} · last change ${relativeTime(last.timestamp)}${c.reset}`);
+      console.log(
+        `  ${c.gray}  ${versions} version${versions === 1 ? "" : "s"} · ${drifts} drift event${drifts === 1 ? "" : "s"} · last change ${relativeTime(last.timestamp)}${c.reset}`
+      );
       console.log("");
     }
     return;
@@ -504,7 +586,9 @@ async function cmdHistory(endpoint: string, flags: Record<string, string | boole
   }
 
   console.log(`\n  ${c.bold}Timeline:${c.reset} ${c.cyan}${truncate(endpoint, 60)}${c.reset}`);
-  console.log(`  ${c.gray}${hist.entries.length} version${hist.entries.length === 1 ? "" : "s"} recorded${c.reset}\n`);
+  console.log(
+    `  ${c.gray}${hist.entries.length} version${hist.entries.length === 1 ? "" : "s"} recorded${c.reset}\n`
+  );
 
   for (let i = 0; i < hist.entries.length; i++) {
     const entry = hist.entries[i];
@@ -515,21 +599,31 @@ async function cmdHistory(endpoint: string, flags: Record<string, string | boole
     const age = relativeTime(entry.timestamp);
 
     if (isFirst) {
-      console.log(`  ${c.gray}${connector}─${c.reset} ${c.green}v1${c.reset}  ${c.dim}${ts}${c.reset}  ${c.gray}${age}${c.reset}`);
-      console.log(`  ${isLast ? " " : c.gray + "│" + c.reset}    ${c.gray}Initial snapshot · ${Object.keys(entry.schema).length} fields${c.reset}`);
+      console.log(
+        `  ${c.gray}${connector}─${c.reset} ${c.green}v1${c.reset}  ${c.dim}${ts}${c.reset}  ${c.gray}${age}${c.reset}`
+      );
+      console.log(
+        `  ${isLast ? " " : c.gray + "│" + c.reset}    ${c.gray}Initial snapshot · ${Object.keys(entry.schema).length} fields${c.reset}`
+      );
     } else {
       const vNum = `v${i + 1}`;
-      const hasBreaking = entry.changes.some(ch => ch.impact === "BREAKING");
+      const hasBreaking = entry.changes.some((ch) => ch.impact === "BREAKING");
       const vColor = hasBreaking ? c.red : c.yellow;
-      console.log(`  ${c.gray}${connector}─${c.reset} ${vColor}${vNum}${c.reset}  ${c.dim}${ts}${c.reset}  ${c.gray}${age}${c.reset}`);
+      console.log(
+        `  ${c.gray}${connector}─${c.reset} ${vColor}${vNum}${c.reset}  ${c.dim}${ts}${c.reset}  ${c.gray}${age}${c.reset}`
+      );
       for (const change of entry.changes.slice(0, 5)) {
         const icon = change.impact === "BREAKING" ? `${c.red}✖` : `${c.yellow}△`;
         const line = isLast ? " " : c.gray + "│" + c.reset;
-        console.log(`  ${line}    ${icon}${c.reset}  ${c.dim}${truncate(change.description, 60)}${c.reset}`);
+        console.log(
+          `  ${line}    ${icon}${c.reset}  ${c.dim}${truncate(change.description, 60)}${c.reset}`
+        );
       }
       if (entry.changes.length > 5) {
         const line = isLast ? " " : c.gray + "│" + c.reset;
-        console.log(`  ${line}    ${c.gray}...and ${entry.changes.length - 5} more changes${c.reset}`);
+        console.log(
+          `  ${line}    ${c.gray}...and ${entry.changes.length - 5} more changes${c.reset}`
+        );
       }
     }
     if (!isLast) console.log(`  ${c.gray}│${c.reset}`);
@@ -543,9 +637,13 @@ async function cmdCheck(flags: Record<string, string | boolean> = {}): Promise<n
 
   if (snapshots.length === 0) {
     if (flags["--json"]) {
-      process.stdout.write(JSON.stringify({ clean: true, message: "No snapshots found" }, null, 2) + "\n");
+      process.stdout.write(
+        JSON.stringify({ clean: true, message: "No snapshots found" }, null, 2) + "\n"
+      );
     } else {
-      console.log(`\n  ${c.yellow}⚠  No snapshots found.${c.reset} Run your app first to capture baselines.\n`);
+      console.log(
+        `\n  ${c.yellow}⚠  No snapshots found.${c.reset} Run your app first to capture baselines.\n`
+      );
     }
     return 0;
   }
@@ -558,19 +656,25 @@ async function cmdCheck(flags: Record<string, string | boolean> = {}): Promise<n
     const hist = all.history[snap.endpoint];
     if (!hist) continue;
     for (const entry of hist.entries) {
-      const breakingInEntry = entry.changes.filter(ch => ch.impact === "BREAKING").length;
+      const breakingInEntry = entry.changes.filter((ch) => ch.impact === "BREAKING").length;
       totalBreaking += breakingInEntry;
       if (entry.changes.length > 0) totalDrifts++;
     }
   }
 
   if (flags["--json"]) {
-    process.stdout.write(JSON.stringify({
-      clean: totalBreaking === 0,
-      endpoints: snapshots.length,
-      driftEvents: totalDrifts,
-      breakingChanges: totalBreaking,
-    }, null, 2) + "\n");
+    process.stdout.write(
+      JSON.stringify(
+        {
+          clean: totalBreaking === 0,
+          endpoints: snapshots.length,
+          driftEvents: totalDrifts,
+          breakingChanges: totalBreaking,
+        },
+        null,
+        2
+      ) + "\n"
+    );
     return totalBreaking > 0 ? 1 : 0;
   }
 
@@ -595,7 +699,9 @@ async function cmdTypes(output?: string): Promise<void> {
   const snapshots = listSnapshots();
 
   if (snapshots.length === 0) {
-    console.error(`  ${c.yellow}No snapshots found.${c.reset} Start your app to capture API shapes first.`);
+    console.error(
+      `  ${c.yellow}No snapshots found.${c.reset} Start your app to capture API shapes first.`
+    );
     process.exit(1);
   }
 
@@ -606,7 +712,9 @@ async function cmdTypes(output?: string): Promise<void> {
     if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(output, types, "utf-8");
     console.log(`\n  ${c.green}✔${c.reset} Generated ${c.cyan}${output}${c.reset}`);
-    console.log(`  ${c.gray}  ${snapshots.length} interface${snapshots.length === 1 ? "" : "s"} from ${snapshots.length} endpoint${snapshots.length === 1 ? "" : "s"}${c.reset}\n`);
+    console.log(
+      `  ${c.gray}  ${snapshots.length} interface${snapshots.length === 1 ? "" : "s"} from ${snapshots.length} endpoint${snapshots.length === 1 ? "" : "s"}${c.reset}\n`
+    );
   } else {
     process.stdout.write(types);
   }
@@ -619,12 +727,16 @@ async function cmdClear(endpoint?: string): Promise<void> {
   if (endpoint) {
     clearSnapshot(endpoint);
     clearHistory(endpoint);
-    console.log(`\n  ${c.green}✔${c.reset} Cleared snapshot and history for:\n  ${c.cyan}${endpoint}${c.reset}\n`);
+    console.log(
+      `\n  ${c.green}✔${c.reset} Cleared snapshot and history for:\n  ${c.cyan}${endpoint}${c.reset}\n`
+    );
   } else {
     const args = process.argv.slice(2);
     if (!args.includes("--yes") && !args.includes("-y")) {
       console.log(`\n  ${c.yellow}This will clear ALL snapshots and history.${c.reset}`);
-      console.log(`  Add ${c.cyan}--yes${c.reset} to confirm:  ${c.cyan}apidrift clear --yes${c.reset}\n`);
+      console.log(
+        `  Add ${c.cyan}--yes${c.reset} to confirm:  ${c.cyan}apidrift clear --yes${c.reset}\n`
+      );
       return;
     }
     clearAllSnapshots();
@@ -633,19 +745,33 @@ async function cmdClear(endpoint?: string): Promise<void> {
   }
 }
 
-async function cmdCompare(file1: string, file2: string, flags: Record<string, string | boolean> = {}): Promise<void> {
+async function cmdCompare(
+  file1: string,
+  file2: string,
+  flags: Record<string, string | boolean> = {}
+): Promise<void> {
   const { compare, reportDrift } = await getModules();
 
   if (!file1 || !file2) {
-    console.error(`  ${c.red}Error:${c.reset} Two files required\n  Usage: ${c.cyan}apidrift compare <old.json> <new.json>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} Two files required\n  Usage: ${c.cyan}apidrift compare <old.json> <new.json>${c.reset}`
+    );
     process.exit(1);
   }
 
   let body1: unknown, body2: unknown;
-  try { body1 = JSON.parse(fs.readFileSync(file1, "utf-8")); }
-  catch { console.error(`  ${c.red}Error reading:${c.reset} ${file1}`); process.exit(1); }
-  try { body2 = JSON.parse(fs.readFileSync(file2, "utf-8")); }
-  catch { console.error(`  ${c.red}Error reading:${c.reset} ${file2}`); process.exit(1); }
+  try {
+    body1 = JSON.parse(fs.readFileSync(file1, "utf-8"));
+  } catch {
+    console.error(`  ${c.red}Error reading:${c.reset} ${file1}`);
+    process.exit(1);
+  }
+  try {
+    body2 = JSON.parse(fs.readFileSync(file2, "utf-8"));
+  } catch {
+    console.error(`  ${c.red}Error reading:${c.reset} ${file2}`);
+    process.exit(1);
+  }
 
   const label = `${path.basename(file1)} → ${path.basename(file2)}`;
   const result = compare(label, body1, body2);
@@ -668,7 +794,9 @@ async function cmdLock(url: string): Promise<void> {
   const { getSnapshot, lockContract } = await getModules();
 
   if (!url) {
-    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift lock <url>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift lock <url>${c.reset}`
+    );
     process.exit(1);
   }
 
@@ -683,15 +811,21 @@ async function cmdLock(url: string): Promise<void> {
   const fieldCount = Object.keys(snap.schema).length;
   console.log(`\n  ${c.green}✔${c.reset} Contract locked for:`);
   console.log(`  ${c.cyan}${url}${c.reset}`);
-  console.log(`  ${c.gray}  ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked → saved to ${c.cyan}apidrift.contract.json${c.reset}`);
-  console.log(`\n  ${c.gray}Any deviation from this schema will trigger a contract violation.${c.reset}\n`);
+  console.log(
+    `  ${c.gray}  ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked → saved to ${c.cyan}apidrift.contract.json${c.reset}`
+  );
+  console.log(
+    `\n  ${c.gray}Any deviation from this schema will trigger a contract violation.${c.reset}\n`
+  );
 }
 
 async function cmdUnlock(url: string): Promise<void> {
   const { unlockContract, hasContract } = await getModules();
 
   if (!url) {
-    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift unlock <url>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift unlock <url>${c.reset}`
+    );
     process.exit(1);
   }
 
@@ -724,22 +858,31 @@ async function cmdContracts(flags: Record<string, string | boolean> = {}): Promi
   for (const [endpoint, contract] of entries) {
     const fieldCount = Object.keys(contract).length;
     console.log(`  ${c.green}🔒${c.reset}  ${c.cyan}${truncate(endpoint, 65)}${c.reset}`);
-    console.log(`  ${c.gray}     ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked${c.reset}\n`);
+    console.log(
+      `  ${c.gray}     ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked${c.reset}\n`
+    );
   }
 }
 
-async function cmdInspect(url: string, flags: Record<string, string | boolean> = {}): Promise<void> {
+async function cmdInspect(
+  url: string,
+  flags: Record<string, string | boolean> = {}
+): Promise<void> {
   const { getSnapshot, getHistory, getContract } = await getModules();
 
   if (!url) {
-    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift inspect <url>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift inspect <url>${c.reset}`
+    );
     process.exit(1);
   }
 
   const snap = getSnapshot(url);
   if (!snap) {
     if (flags["--json"]) {
-      process.stdout.write(JSON.stringify({ error: "No snapshot found", endpoint: url }, null, 2) + "\n");
+      process.stdout.write(
+        JSON.stringify({ error: "No snapshot found", endpoint: url }, null, 2) + "\n"
+      );
     } else {
       console.log(`\n  ${c.yellow}No snapshot for:${c.reset} ${url}\n`);
     }
@@ -752,16 +895,22 @@ async function cmdInspect(url: string, flags: Record<string, string | boolean> =
   const drifts = Math.max(0, versions - 1);
 
   if (flags["--json"]) {
-    process.stdout.write(JSON.stringify({
-      endpoint: url,
-      responseCount: snap.responseCount,
-      capturedAt: snap.capturedAt,
-      versions,
-      driftEvents: drifts,
-      hasContract: !!contract,
-      schema: snap.schema,
-      history: hist,
-    }, null, 2) + "\n");
+    process.stdout.write(
+      JSON.stringify(
+        {
+          endpoint: url,
+          responseCount: snap.responseCount,
+          capturedAt: snap.capturedAt,
+          versions,
+          driftEvents: drifts,
+          hasContract: !!contract,
+          schema: snap.schema,
+          history: hist,
+        },
+        null,
+        2
+      ) + "\n"
+    );
     return;
   }
 
@@ -771,10 +920,14 @@ async function cmdInspect(url: string, flags: Record<string, string | boolean> =
   console.log(`  ${c.gray}  Last seen:   ${c.reset}${relativeTime(snap.capturedAt)}`);
   console.log(`  ${c.gray}  Versions:    ${c.reset}${versions}`);
   console.log(`  ${c.gray}  Drift events:${c.reset}${drifts}`);
-  console.log(`  ${c.gray}  Contract:    ${c.reset}${contract ? `${c.green}locked${c.reset}` : `${c.gray}none${c.reset}`}`);
+  console.log(
+    `  ${c.gray}  Contract:    ${c.reset}${contract ? `${c.green}locked${c.reset}` : `${c.gray}none${c.reset}`}`
+  );
   console.log("");
 
-  console.log(`  ${c.bold}Current Schema${c.reset}  ${c.gray}(${Object.keys(snap.schema).length} fields)${c.reset}`);
+  console.log(
+    `  ${c.bold}Current Schema${c.reset}  ${c.gray}(${Object.keys(snap.schema).length} fields)${c.reset}`
+  );
   for (const [field, node] of Object.entries(snap.schema)) {
     const opt = node.optional ? c.gray + "?" + c.reset : "";
     const nullable = node.nullable ? `${c.gray} | null${c.reset}` : "";
@@ -794,11 +947,14 @@ async function cmdInspect(url: string, flags: Record<string, string | boolean> =
 }
 
 async function cmdGenerateMiddleware(framework?: string): Promise<void> {
-  const { generateFastAPIMiddleware, generateDjangoMiddleware } = await import("../plugins/codegen.js");
+  const { generateFastAPIMiddleware, generateDjangoMiddleware } =
+    await import("../plugins/codegen.js");
   const fw = (framework ?? "").toLowerCase();
 
   if (!fw || (fw !== "fastapi" && fw !== "django")) {
-    console.error(`  ${c.red}Error:${c.reset} Framework required\n  Usage: ${c.cyan}apidrift generate-middleware <fastapi|django>${c.reset}`);
+    console.error(
+      `  ${c.red}Error:${c.reset} Framework required\n  Usage: ${c.cyan}apidrift generate-middleware <fastapi|django>${c.reset}`
+    );
     process.exit(1);
   }
 
@@ -806,7 +962,9 @@ async function cmdGenerateMiddleware(framework?: string): Promise<void> {
   const filename = fw === "fastapi" ? "apidrift_middleware.py" : "apidrift_middleware.py";
   fs.writeFileSync(filename, code, "utf-8");
   console.log(`\n  ${c.green}✔${c.reset} Generated ${c.cyan}${filename}${c.reset}`);
-  console.log(`  ${c.gray}Add it to your ${fw === "fastapi" ? "FastAPI" : "Django"} app — instructions are in the file.${c.reset}\n`);
+  console.log(
+    `  ${c.gray}Add it to your ${fw === "fastapi" ? "FastAPI" : "Django"} app — instructions are in the file.${c.reset}\n`
+  );
 }
 
 // ─── New Commands ────────────────────────────────────────────────────────────
@@ -828,7 +986,9 @@ async function cmdExport(flags: Record<string, string | boolean>): Promise<void>
   const snapshots = listSnapshots();
 
   if (snapshots.length === 0) {
-    console.error(`  ${c.yellow}No snapshots found.${c.reset} Start your app to capture API shapes first.`);
+    console.error(
+      `  ${c.yellow}No snapshots found.${c.reset} Start your app to capture API shapes first.`
+    );
     process.exit(1);
   }
 
@@ -848,7 +1008,9 @@ async function cmdExport(flags: Record<string, string | boolean>): Promise<void>
     if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(outputFile, output, "utf-8");
     if (!flags["--json"]) {
-      console.log(`\n  ${c.green}✔${c.reset} Exported ${snapshots.length} schema${snapshots.length === 1 ? "" : "s"} to ${c.cyan}${outputFile}${c.reset}`);
+      console.log(
+        `\n  ${c.green}✔${c.reset} Exported ${snapshots.length} schema${snapshots.length === 1 ? "" : "s"} to ${c.cyan}${outputFile}${c.reset}`
+      );
       console.log(`  ${c.gray}Format: ${format}${c.reset}\n`);
     }
   } else {
@@ -856,13 +1018,20 @@ async function cmdExport(flags: Record<string, string | boolean>): Promise<void>
   }
 }
 
-function schemaNodeToJsonSchema(node: import("../core/schema.js").SchemaNode): Record<string, unknown> {
+function schemaNodeToJsonSchema(
+  node: import("../core/schema.js").SchemaNode
+): Record<string, unknown> {
   switch (node.type) {
-    case "string":  return node.nullable ? { type: ["string", "null"] } : { type: "string" };
-    case "number":  return node.nullable ? { type: ["number", "null"] } : { type: "number" };
-    case "boolean": return node.nullable ? { type: ["boolean", "null"] } : { type: "boolean" };
-    case "null":    return { type: "null" };
-    case "unknown": return {};
+    case "string":
+      return node.nullable ? { type: ["string", "null"] } : { type: "string" };
+    case "number":
+      return node.nullable ? { type: ["number", "null"] } : { type: "number" };
+    case "boolean":
+      return node.nullable ? { type: ["boolean", "null"] } : { type: "boolean" };
+    case "null":
+      return { type: "null" };
+    case "unknown":
+      return {};
     case "array": {
       const base: Record<string, unknown> = { type: "array" };
       if (node.items) base.items = schemaNodeToJsonSchema(node.items);
@@ -881,7 +1050,8 @@ function schemaNodeToJsonSchema(node: import("../core/schema.js").SchemaNode): R
       if (node.nullable) return { oneOf: [base, { type: "null" }] };
       return base;
     }
-    default: return {};
+    default:
+      return {};
   }
 }
 
@@ -908,12 +1078,16 @@ function exportAsJsonSchema(snapshots: import("../core/storage.js").Snapshot[]):
     };
   }
 
-  return JSON.stringify({
-    $schema: "http://json-schema.org/draft-07/schema#",
-    title: "apidrift — exported schemas",
-    description: `Generated by apidrift on ${new Date().toISOString()}`,
-    definitions,
-  }, null, 2);
+  return JSON.stringify(
+    {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      title: "apidrift — exported schemas",
+      description: `Generated by apidrift on ${new Date().toISOString()}`,
+      definitions,
+    },
+    null,
+    2
+  );
 }
 
 function exportAsOpenAPI(snapshots: import("../core/storage.js").Snapshot[]): string {
@@ -923,7 +1097,9 @@ function exportAsOpenAPI(snapshots: import("../core/storage.js").Snapshot[]): st
     let urlPath = snap.endpoint;
     try {
       urlPath = new URL(snap.endpoint).pathname;
-    } catch { /* relative URL — use as-is */ }
+    } catch {
+      /* relative URL — use as-is */
+    }
 
     const props: Record<string, unknown> = {};
     const required: string[] = [];
@@ -955,15 +1131,19 @@ function exportAsOpenAPI(snapshots: import("../core/storage.js").Snapshot[]): st
     };
   }
 
-  return JSON.stringify({
-    openapi: "3.0.3",
-    info: {
-      title: "apidrift — exported API schemas",
-      version: "1.0.0",
-      description: `Generated by apidrift on ${new Date().toISOString()}`,
+  return JSON.stringify(
+    {
+      openapi: "3.0.3",
+      info: {
+        title: "apidrift — exported API schemas",
+        version: "1.0.0",
+        description: `Generated by apidrift on ${new Date().toISOString()}`,
+      },
+      paths,
     },
-    paths,
-  }, null, 2);
+    null,
+    2
+  );
 }
 
 /**
@@ -1007,13 +1187,17 @@ async function cmdReplay(
   const maxV = hist.entries.length;
   if (v1 < 1 || v1 > maxV || v2 < 1 || v2 > maxV) {
     console.error(`  ${c.red}Error:${c.reset} Version numbers must be between 1 and ${maxV}`);
-    console.error(`  ${c.gray}Run ${c.cyan}apidrift history ${endpoint}${c.gray} to see available versions.${c.reset}`);
+    console.error(
+      `  ${c.gray}Run ${c.cyan}apidrift history ${endpoint}${c.gray} to see available versions.${c.reset}`
+    );
     process.exit(1);
   }
 
   if (v1 === v2) {
     if (flags["--json"]) {
-      process.stdout.write(JSON.stringify({ endpoint, v1, v2, hasChanges: false, changes: [] }, null, 2) + "\n");
+      process.stdout.write(
+        JSON.stringify({ endpoint, v1, v2, hasChanges: false, changes: [] }, null, 2) + "\n"
+      );
     } else {
       console.log(`\n  ${c.green}✔ Same version.${c.reset} No differences.\n`);
     }
@@ -1040,7 +1224,9 @@ async function cmdReplay(
   }
 
   console.log(`\n  ${c.bold}Replay:${c.reset} ${c.cyan}${truncate(endpoint, 55)}${c.reset}`);
-  console.log(`  ${c.gray}Comparing v${v1} (${relativeTime(entry1.timestamp)}) → v${v2} (${relativeTime(entry2.timestamp)})${c.reset}\n`);
+  console.log(
+    `  ${c.gray}Comparing v${v1} (${relativeTime(entry1.timestamp)}) → v${v2} (${relativeTime(entry2.timestamp)})${c.reset}\n`
+  );
 
   if (!result.hasChanges) {
     console.log(`  ${c.green}✔ No differences${c.reset} between v${v1} and v${v2}.\n`);
@@ -1082,11 +1268,11 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
     driftEvents: number;
     breakingChanges: number;
     nonBreakingChanges: number;
-    stabilityScore: number;  // 0–100, higher = more stable
+    stabilityScore: number; // 0–100, higher = more stable
     lastSeen: string;
   }
 
-  const stats: EndpointStat[] = snapshots.map(snap => {
+  const stats: EndpointStat[] = snapshots.map((snap) => {
     const hist = all.history[snap.endpoint];
     const entries = hist?.entries ?? [];
     const versions = entries.length;
@@ -1126,22 +1312,34 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
   const avgStability = stats.reduce((s, e) => s + e.stabilityScore, 0) / stats.length;
 
   if (flags["--json"]) {
-    process.stdout.write(JSON.stringify({
-      summary: {
-        totalEndpoints: stats.length,
-        totalBreakingChanges: totalBreaking,
-        averageStabilityScore: parseFloat(avgStability.toFixed(1)),
-      },
-      endpoints: stats,
-    }, null, 2) + "\n");
+    process.stdout.write(
+      JSON.stringify(
+        {
+          summary: {
+            totalEndpoints: stats.length,
+            totalBreakingChanges: totalBreaking,
+            averageStabilityScore: parseFloat(avgStability.toFixed(1)),
+          },
+          endpoints: stats,
+        },
+        null,
+        2
+      ) + "\n"
+    );
     return;
   }
 
-  console.log(`\n  ${c.bold}API Stability Stats${c.reset}  ${c.gray}(${stats.length} endpoints)${c.reset}\n`);
+  console.log(
+    `\n  ${c.bold}API Stability Stats${c.reset}  ${c.gray}(${stats.length} endpoints)${c.reset}\n`
+  );
 
   // Summary row
-  console.log(`  ${c.gray}Total breaking changes:${c.reset}  ${totalBreaking > 0 ? c.red : c.green}${totalBreaking}${c.reset}`);
-  console.log(`  ${c.gray}Avg stability score:${c.reset}     ${avgStability >= 80 ? c.green : avgStability >= 50 ? c.yellow : c.red}${avgStability.toFixed(1)}/100${c.reset}`);
+  console.log(
+    `  ${c.gray}Total breaking changes:${c.reset}  ${totalBreaking > 0 ? c.red : c.green}${totalBreaking}${c.reset}`
+  );
+  console.log(
+    `  ${c.gray}Avg stability score:${c.reset}     ${avgStability >= 80 ? c.green : avgStability >= 50 ? c.yellow : c.red}${avgStability.toFixed(1)}/100${c.reset}`
+  );
   console.log("");
 
   // Per-endpoint table
@@ -1151,14 +1349,15 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
 
   for (const stat of stats) {
     const ep = truncate(stat.endpoint, 48);
-    const scoreColor = stat.stabilityScore >= 80 ? c.green : stat.stabilityScore >= 50 ? c.yellow : c.red;
+    const scoreColor =
+      stat.stabilityScore >= 80 ? c.green : stat.stabilityScore >= 50 ? c.yellow : c.red;
     const breakColor = stat.breakingChanges > 0 ? c.red : c.gray;
     console.log(
       `  ${c.cyan}${ep.padEnd(50)}${c.reset}` +
-      ` ${String(stat.responseCount).padStart(5)}` +
-      ` ${String(stat.driftEvents).padStart(7)}` +
-      ` ${breakColor}${String(stat.breakingChanges).padStart(9)}${c.reset}` +
-      ` ${scoreColor}${String(stat.stabilityScore).padStart(6)}${c.reset}`
+        ` ${String(stat.responseCount).padStart(5)}` +
+        ` ${String(stat.driftEvents).padStart(7)}` +
+        ` ${breakColor}${String(stat.breakingChanges).padStart(9)}${c.reset}` +
+        ` ${scoreColor}${String(stat.stabilityScore).padStart(6)}${c.reset}`
     );
   }
   console.log("");
@@ -1168,9 +1367,9 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
 
 async function cmdCiGen(platform: string = "github"): Promise<void> {
   if (platform === "github") {
-    const workflowDir = path.join(process.cwd(), '.github', 'workflows');
-    const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
-    
+    const workflowDir = path.join(process.cwd(), ".github", "workflows");
+    const workflowFile = path.join(workflowDir, "apidrift-check.yml");
+
     const yaml = `name: apidrift-check
 
 on:
@@ -1206,12 +1405,16 @@ jobs:
     if (!fs.existsSync(workflowDir)) {
       fs.mkdirSync(workflowDir, { recursive: true });
     }
-    
+
     fs.writeFileSync(workflowFile, yaml, "utf-8");
-    console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
-    console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
+    console.log(
+      `\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`
+    );
+    console.log(
+      `  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`
+    );
   } else if (platform === "gitlab") {
-    const gitlabCiFile = path.join(process.cwd(), '.gitlab-ci.yml');
+    const gitlabCiFile = path.join(process.cwd(), ".gitlab-ci.yml");
     const yaml = `apidrift-check:
   image: node:20
   script:
@@ -1232,15 +1435,16 @@ jobs:
   }
 }
 
-
 async function cmdReport(flags: Record<string, string | boolean> = {}): Promise<void> {
   const { generateHtmlReport } = await getModules();
   const outputPath = (flags["--output"] as string) || "apidrift-report.html";
-  
+
   await generateHtmlReport(outputPath);
-  
+
   console.log(`\n  ${c.green}✔  HTML Report generated:${c.reset} ${outputPath}`);
-  console.log(`  ${c.gray}Open this file in your browser to view the API drift dashboard.${c.reset}\n`);
+  console.log(
+    `  ${c.gray}Open this file in your browser to view the API drift dashboard.${c.reset}\n`
+  );
 }
 
 function printHelp(): void {
@@ -1275,24 +1479,42 @@ function printHelp(): void {
   console.log(`  ${c.cyan}--help, -h         ${c.reset}${c.gray}Show this help${c.reset}`);
   console.log(`  ${c.cyan}--version, -v      ${c.reset}${c.gray}Show version${c.reset}`);
   console.log(`  ${c.cyan}--verbose          ${c.reset}${c.gray}Extra output${c.reset}`);
-  console.log(`  ${c.cyan}--json             ${c.reset}${c.gray}Machine-readable JSON output (works on most commands)${c.reset}`);
-  console.log(`  ${c.cyan}--output <file>    ${c.reset}${c.gray}Write output to file (watch, export)${c.reset}`);
-  console.log(`  ${c.cyan}--format <fmt>     ${c.reset}${c.gray}Export format: json-schema (default) or openapi${c.reset}`);
-  console.log(`  ${c.cyan}--interval <secs>  ${c.reset}${c.gray}Polling interval for watch (default: 5)${c.reset}`);
+  console.log(
+    `  ${c.cyan}--json             ${c.reset}${c.gray}Machine-readable JSON output (works on most commands)${c.reset}`
+  );
+  console.log(
+    `  ${c.cyan}--output <file>    ${c.reset}${c.gray}Write output to file (watch, export)${c.reset}`
+  );
+  console.log(
+    `  ${c.cyan}--format <fmt>     ${c.reset}${c.gray}Export format: json-schema (default) or openapi${c.reset}`
+  );
+  console.log(
+    `  ${c.cyan}--interval <secs>  ${c.reset}${c.gray}Polling interval for watch (default: 5)${c.reset}`
+  );
   console.log(`\n  ${c.bold}ENV VARS${c.reset}\n`);
-  console.log(`  ${c.cyan}APIDRIFT_VERBOSE=1  ${c.reset}${c.gray}Log all tracked endpoints${c.reset}`);
+  console.log(
+    `  ${c.cyan}APIDRIFT_VERBOSE=1  ${c.reset}${c.gray}Log all tracked endpoints${c.reset}`
+  );
   console.log(`  ${c.cyan}APIDRIFT_SILENT=1   ${c.reset}${c.gray}Suppress all output${c.reset}`);
-  console.log(`  ${c.cyan}APIDRIFT_FILTER=api ${c.reset}${c.gray}Only track URLs containing this string${c.reset}`);
-  console.log(`  ${c.cyan}APIDRIFT_CI=1       ${c.reset}${c.gray}Exit 1 on breaking drift (for CI pipelines)${c.reset}`);
+  console.log(
+    `  ${c.cyan}APIDRIFT_FILTER=api ${c.reset}${c.gray}Only track URLs containing this string${c.reset}`
+  );
+  console.log(
+    `  ${c.cyan}APIDRIFT_CI=1       ${c.reset}${c.gray}Exit 1 on breaking drift (for CI pipelines)${c.reset}`
+  );
   console.log(`\n  ${c.bold}EXAMPLES${c.reset}\n`);
   console.log(`  ${c.gray}# Track everything automatically:${c.reset}`);
   console.log(`  ${c.cyan}import "apidrift/register"${c.reset}\n`);
   console.log(`  ${c.gray}# Watch a live endpoint:${c.reset}`);
   console.log(`  ${c.cyan}apidrift watch https://api.github.com/users/octocat${c.reset}\n`);
   console.log(`  ${c.gray}# Watch with output log for CI/alerting:${c.reset}`);
-  console.log(`  ${c.cyan}apidrift watch https://api.example.com/users --output drift-log.json${c.reset}\n`);
+  console.log(
+    `  ${c.cyan}apidrift watch https://api.example.com/users --output drift-log.json${c.reset}\n`
+  );
   console.log(`  ${c.gray}# Machine-readable diff for scripting:${c.reset}`);
-  console.log(`  ${c.cyan}apidrift diff https://api.example.com/users --json | jq .changes${c.reset}\n`);
+  console.log(
+    `  ${c.cyan}apidrift diff https://api.example.com/users --json | jq .changes${c.reset}\n`
+  );
   console.log(`  ${c.gray}# Replay what changed between v2 and v4:${c.reset}`);
   console.log(`  ${c.cyan}apidrift replay https://api.example.com/users 2 4${c.reset}\n`);
   console.log(`  ${c.gray}# Export schemas to bootstrap an OpenAPI spec:${c.reset}`);
@@ -1336,24 +1558,62 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
-    case "init":      await cmdInit(); break;
-    case "list":      await cmdList(flags); break;
-    case "diff":      await cmdDiff(args[1], flags); break;
-    case "watch":     await cmdWatch(args[1], flags); break;
-    case "history":   await cmdHistory(args[1], flags); break;
-    case "replay":    await cmdReplay(args[1], args[2], args[3], flags); break;
-    case "stats":     await cmdStats(flags); break;
-    case "export":    await cmdExport(flags); break;
-    case "inspect":   await cmdInspect(args[1], flags); break;
-    case "compare":   await cmdCompare(args[1], args[2], flags); break;
-    case "types":     await cmdTypes(args[1]); break;
-    case "lock":      await cmdLock(args[1]); break;
-    case "unlock":    await cmdUnlock(args[1]); break;
-    case "contracts": await cmdContracts(flags); break;
-    case "report":    await cmdReport(flags as Record<string, string | boolean>); break;
-    case "ci-gen":    await cmdCiGen(args[1]); break;
-    case "check":     { const code = await cmdCheck(flags); process.exit(code); break; }
-    case "clear":     await cmdClear(args[1]); break;
+    case "init":
+      await cmdInit();
+      break;
+    case "list":
+      await cmdList(flags);
+      break;
+    case "diff":
+      await cmdDiff(args[1], flags);
+      break;
+    case "watch":
+      await cmdWatch(args[1], flags);
+      break;
+    case "history":
+      await cmdHistory(args[1], flags);
+      break;
+    case "replay":
+      await cmdReplay(args[1], args[2], args[3], flags);
+      break;
+    case "stats":
+      await cmdStats(flags);
+      break;
+    case "export":
+      await cmdExport(flags);
+      break;
+    case "inspect":
+      await cmdInspect(args[1], flags);
+      break;
+    case "compare":
+      await cmdCompare(args[1], args[2], flags);
+      break;
+    case "types":
+      await cmdTypes(args[1]);
+      break;
+    case "lock":
+      await cmdLock(args[1]);
+      break;
+    case "unlock":
+      await cmdUnlock(args[1]);
+      break;
+    case "contracts":
+      await cmdContracts(flags);
+      break;
+    case "report":
+      await cmdReport(flags as Record<string, string | boolean>);
+      break;
+    case "ci-gen":
+      await cmdCiGen(args[1]);
+      break;
+    case "check": {
+      const code = await cmdCheck(flags);
+      process.exit(code);
+      break;
+    }
+    case "clear":
+      await cmdClear(args[1]);
+      break;
     case "dashboard": {
       const { runDashboard } = await import("./dashboard.js");
       await runDashboard();

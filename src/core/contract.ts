@@ -154,8 +154,8 @@ function validateNode(
   if (expected.enum && JSON.stringify(expected.enum) !== JSON.stringify(actual.enum)) {
     violations.push({
       field: path,
-      expected: `enum(${expected.enum.join(',')})`,
-      actual: actual.enum ? `enum(${actual.enum.join(',')})` : 'none',
+      expected: `enum(${expected.enum.join(",")})`,
+      actual: actual.enum ? `enum(${actual.enum.join(",")})` : "none",
       description: `Field \`${path}\` enum mismatch`,
     });
   }
@@ -165,7 +165,7 @@ function validateNode(
     violations.push({
       field: path,
       expected: `pattern:${expected.pattern}`,
-      actual: actual.pattern || 'none',
+      actual: actual.pattern || "none",
       description: `Field \`${path}\` pattern mismatch`,
     });
   }
@@ -174,12 +174,7 @@ function validateNode(
   if (expected.type === "object" && expected.children) {
     const actualChildren = actual.children || {};
     for (const [key, expectedChild] of Object.entries(expected.children)) {
-      validateNode(
-        path ? `${path}.${key}` : key,
-        actualChildren[key],
-        expectedChild,
-        violations
-      );
+      validateNode(path ? `${path}.${key}` : key, actualChildren[key], expectedChild, violations);
     }
   }
 
@@ -192,10 +187,7 @@ function validateNode(
 /**
  * Validate a schema against a contract
  */
-export function enforceContract(
-  endpoint: string,
-  schema: Schema
-): ContractResult {
+export function enforceContract(endpoint: string, schema: Schema): ContractResult {
   const store = loadContracts();
   const contract = store.contracts[endpoint];
 

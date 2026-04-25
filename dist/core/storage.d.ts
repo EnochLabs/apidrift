@@ -4,6 +4,8 @@ export interface Snapshot {
     schema: Schema;
     capturedAt: string;
     responseCount: number;
+    avgLatency?: number;
+    latencyHistory?: number[];
 }
 export interface SnapshotStore {
     version: string;
@@ -12,7 +14,7 @@ export interface SnapshotStore {
 export declare function loadStore(): SnapshotStore;
 export declare function saveStore(store: SnapshotStore): void;
 export declare function getSnapshot(endpoint: string): Snapshot | null;
-export declare function saveSnapshot(endpoint: string, schema: Schema): Snapshot;
+export declare function saveSnapshot(endpoint: string, schema: Schema, latency?: number): Snapshot;
 export declare function clearSnapshot(endpoint: string): void;
 export declare function clearAllSnapshots(): void;
 export declare function listSnapshots(): Snapshot[];

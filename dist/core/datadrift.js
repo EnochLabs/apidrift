@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Data Drift Detection
  *
@@ -7,12 +6,6 @@
  *
  * e.g. "parasite_density went from avg 1200 → 2100 (+75%)"
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.extractNumericPaths = extractNumericPaths;
-exports.updateSample = updateSample;
-exports.createSample = createSample;
-exports.sampleStddev = sampleStddev;
-exports.detectDataDrift = detectDataDrift;
 /**
  * Minimum number of samples required before any alert fires.
  *
@@ -32,7 +25,7 @@ const MIN_SAMPLES_FOR_RANGE = 10; // was 3 — far too eager
 /**
  * Extract all numeric leaf values from a JSON object, with dot-paths
  */
-function extractNumericPaths(obj, prefix = "", result = {}) {
+export function extractNumericPaths(obj, prefix = "", result = {}) {
     if (obj === null || obj === undefined)
         return result;
     if (typeof obj === "number" && isFinite(obj)) {
@@ -68,7 +61,7 @@ function extractNumericPaths(obj, prefix = "", result = {}) {
 /**
  * Update Welford's online algorithm for streaming mean/variance
  */
-function updateSample(sample, value) {
+export function updateSample(sample, value) {
     const count = sample.count + 1;
     const delta = value - sample.mean;
     const mean = sample.mean + delta / count;
@@ -83,10 +76,10 @@ function updateSample(sample, value) {
         m2,
     };
 }
-function createSample(value) {
+export function createSample(value) {
     return { min: value, max: value, mean: value, count: 1, sum: value, m2: 0 };
 }
-function sampleStddev(sample) {
+export function sampleStddev(sample) {
     if (sample.count < 2)
         return 0;
     return Math.sqrt(sample.m2 / (sample.count - 1));
@@ -99,7 +92,7 @@ function sampleStddev(sample) {
  * the detector stays silent during the warm-up period and only fires once
  * it has enough data to be statistically meaningful.
  */
-function detectDataDrift(endpoint, current, baseline) {
+export function detectDataDrift(endpoint, current, baseline) {
     const alerts = [];
     for (const [path, value] of Object.entries(current)) {
         const stats = baseline[path];
@@ -147,8 +140,7 @@ function detectDataDrift(endpoint, current, baseline) {
         // Range exceeded (outside min-max envelope)
         if (stats.samples.count >= MIN_SAMPLES_FOR_RANGE) {
             const rangeMargin = (stats.samples.max - stats.samples.min) * 0.1;
-            if (value < stats.samples.min - rangeMargin ||
-                value > stats.samples.max + rangeMargin) {
+            if (value < stats.samples.min - rangeMargin || value > stats.samples.max + rangeMargin) {
                 alerts.push({
                     path,
                     kind: "RANGE_EXCEEDED",
