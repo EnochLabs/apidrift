@@ -34,51 +34,53 @@ function nodeToTS(node: SchemaNode, indent: number = 0): string {
 
   let base: string;
 
-  switch (node.type) {
-    case "string":
-      base = "string";
-      break;
-    case "number":
-      base = "number";
-      break;
-    case "boolean":
-      base = "boolean";
-      break;
-    case "null":
-      base = "null";
-      break;
-    case "unknown":
-      base = "unknown";
-      break;
-    case "array":
-      if (node.items) {
-        const itemType = nodeToTS(node.items, indent);
-        base =
-          node.items.type === "object"
-            ? `Array<{\n${itemType}\n${pad}}>`
-            : `${itemType}[]`;
-      } else {
-        base = "unknown[]";
-      }
-      break;
-    case "object":
-      if (!node.children || Object.keys(node.children).length === 0) {
-        base = "Record<string, unknown>";
-      } else {
-        const lines = Object.entries(node.children).map(([key, child]) => {
-          const optional = child.optional ? "?" : "";
-          const type = nodeToTS(child, indent + 1);
-          return `${"  ".repeat(indent + 1)}${key}${optional}: ${type};`;
-        });
-        return lines.join("\n");
-      }
-      break;
-    default:
-      base = "unknown";
+  if (node.enum && node.enum.length > 0) {
+    base = node.enum.map((v) => JSON.stringify(v)).join(" | ");
+  } else {
+    switch (node.type) {
+      case "string":
+        base = "string";
+        if (node.pattern) base += ` /* pattern: ${node.pattern} */`;
+        break;
+      case "number":
+        base = "number";
+        break;
+      case "boolean":
+        base = "boolean";
+        break;
+      case "null":
+        base = "null";
+        break;
+      case "unknown":
+        base = "unknown";
+        break;
+      case "array":
+        if (node.items) {
+          const itemType = nodeToTS(node.items, indent);
+          base = node.items.type === "object" ? `Array<${itemType}>` : `${itemType}[]`;
+        } else {
+          base = "unknown[]";
+        }
+        break;
+      case "object":
+        if (!node.children || Object.keys(node.children).length === 0) {
+          base = "Record<string, unknown>";
+        } else {
+          const childLines = Object.entries(node.children).map(([key, child]) => {
+            const optional = child.optional ? "?" : "";
+            const type = nodeToTS(child, indent + 1);
+            return `${"  ".repeat(indent + 1)}${key}${optional}: ${type};`;
+          });
+          base = `{\n${childLines.join("\n")}\n${pad}}`;
+        }
+        break;
+      default:
+        base = "unknown";
+    }
   }
 
   if (node.nullable) {
-    base = `${base} | null`;
+    base = `(${base}) | null`;
   }
 
   return base;
@@ -87,38 +89,18 @@ function nodeToTS(node: SchemaNode, indent: number = 0): string {
 /**
  * Generate a TypeScript interface from a Schema
  */
-export function generateInterface(
-  name: string,
-  schema: Schema
-): string {
+export function generateInterface(name: string, schema: Schema): string {
+  if (schema._root) {
+    return `export type ${name} = ${nodeToTS(schema._root)};`;
+  }
+
   const lines: string[] = [];
   lines.push(`export interface ${name} {`);
 
   for (const [key, node] of Object.entries(schema)) {
-    if (key === "_root") {
-      // Non-object root — export as type alias instead
-      return `export type ${name} = ${nodeToTS(node)};`;
-    }
     const optional = node.optional ? "?" : "";
     const type = nodeToTS(node, 1);
-
-    if (node.type === "object" && node.children) {
-      lines.push(`  ${key}${optional}: {`);
-      for (const [childKey, childNode] of Object.entries(node.children)) {
-        const childOptional = childNode.optional ? "?" : "";
-        lines.push(`    ${childKey}${childOptional}: ${nodeToTS(childNode, 2)};`);
-      }
-      lines.push(`  };`);
-    } else if (node.type === "array" && node.items?.type === "object" && node.items.children) {
-      lines.push(`  ${key}${optional}: Array<{`);
-      for (const [childKey, childNode] of Object.entries(node.items.children)) {
-        const childOptional = childNode.optional ? "?" : "";
-        lines.push(`    ${childKey}${childOptional}: ${nodeToTS(childNode, 2)};`);
-      }
-      lines.push(`  }>;`);
-    } else {
-      lines.push(`  ${key}${optional}: ${type};`);
-    }
+    lines.push(`  ${key}${optional}: ${type};`);
   }
 
   lines.push(`}`);
