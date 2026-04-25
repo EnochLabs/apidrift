@@ -33,7 +33,7 @@ export function loadDataDriftStore() {
 function saveDataDriftStore(store) {
     const p = getDataDriftPath();
     ensureDir(p);
-    const tempPath = p + '.tmp';
+    const tempPath = p + ".tmp";
     fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), "utf-8");
     fs.renameSync(tempPath, p);
 }

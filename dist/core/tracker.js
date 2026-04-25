@@ -83,16 +83,19 @@ export function track(url, body, options = {}, latency) {
                     });
                     const req = https.request(url, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Content-Length": Buffer.byteLength(payload),
+                        },
                     });
-                    req.on('error', (err) => {
-                        console.error('Apidrift webhook error:', err.message);
+                    req.on("error", (err) => {
+                        console.error("Apidrift webhook error:", err.message);
                     });
                     req.write(payload);
                     req.end();
                 }
                 catch (err) {
-                    console.error('Apidrift webhook setup error:', err instanceof Error ? err.message : String(err));
+                    console.error("Apidrift webhook setup error:", err instanceof Error ? err.message : String(err));
                 }
             })();
         }
