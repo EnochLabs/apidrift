@@ -110,6 +110,54 @@ assert(snap.schema.status.enum !== undefined, "infers enum after 5 calls");
 assert(snap.schema.status.enum.includes("active"), "enum contains 'active'");
 assert(snap.schema.status.enum.includes("inactive"), "enum contains 'inactive'");
 
+describe("Deep Contracts");
+const { lockContract, enforceContract } = m("core/contract.js");
+const deepSchema = {
+  user: {
+    type: "object",
+    children: {
+      id: { type: "number" },
+      profile: {
+        type: "object",
+        children: {
+          bio: { type: "string" }
+        }
+      }
+    }
+  }
+};
+lockContract("https://api.test.com/deep", deepSchema);
+
+const validDeep = {
+  user: { id: 1, profile: { bio: "hello" } }
+};
+const { extractTopLevelSchema } = m("core/schema.js");
+const res1 = enforceContract("https://api.test.com/deep", extractTopLevelSchema(validDeep));
+assert(res1.passed === true, "validates deep nested objects");
+
+const invalidDeep = {
+  user: { id: 1, profile: { bio: 123 } }
+};
+const res2 = enforceContract("https://api.test.com/deep", extractTopLevelSchema(invalidDeep));
+assert(res2.passed === false, "fails on deep type mismatch");
+assert(res2.violations.some(v => v.field === "user.profile.bio"), "correctly identifies deep field path");
+
+describe("Enhanced Type Generation");
+const { generateInterface } = m("utils/typegen.js");
+const enumSchema = {
+  status: { type: "string", enum: ["open", "closed"] },
+  meta: {
+    type: "object",
+    children: {
+      tags: { type: "array", items: { type: "string" } }
+    }
+  }
+};
+const typeOutput = generateInterface("TestResponse", enumSchema);
+assert(typeOutput.includes('status: "open" | "closed"'), "generates union for enums");
+assert(typeOutput.includes('tags: string[]'), "generates correct array types");
+assert(typeOutput.includes('meta: {'), "generates nested objects with braces");
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 console.log("\n" + "─".repeat(52));

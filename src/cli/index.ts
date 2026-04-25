@@ -47,11 +47,11 @@ async function getModules() {
   const { generateTypesFromSnapshots } = await import("../utils/typegen.js");
   const { compare } = await import("../core/tracker.js");
   const { getHistory, getAllHistory } = await import("../core/history.js");
-  const { lockContract, loadContracts, getContract, hasContract } = await import("../core/contract.js");
+  const { lockContract, unlockContract, loadContracts, getContract, hasContract } = await import("../core/contract.js");
   return {
     listSnapshots, clearAllSnapshots, clearSnapshot, getSnapshot, saveSnapshot, loadStore,
     diffSchemas, reportDrift, ciReport, generateHtmlReport, extractTopLevelSchema, generateTypesFromSnapshots,
-    compare, getHistory, getAllHistory, lockContract, loadContracts, getContract, hasContract,
+    compare, getHistory, getAllHistory, lockContract, unlockContract, loadContracts, getContract, hasContract,
   };
 }
 
@@ -614,7 +614,7 @@ async function cmdTypes(output?: string): Promise<void> {
 
 async function cmdClear(endpoint?: string): Promise<void> {
   const { clearAllSnapshots, clearSnapshot } = await getModules();
-  const { clearHistory } = await import("../core/history.js");
+  const { clearHistory } = await import("../core/history.js"); // clearHistory not in getModules
 
   if (endpoint) {
     clearSnapshot(endpoint);
@@ -665,7 +665,7 @@ async function cmdCompare(file1: string, file2: string, flags: Record<string, st
 }
 
 async function cmdLock(url: string): Promise<void> {
-  const { getSnapshot, lockContract, hasContract } = await getModules();
+  const { getSnapshot, lockContract } = await getModules();
 
   if (!url) {
     console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift lock <url>${c.reset}`);
@@ -685,6 +685,23 @@ async function cmdLock(url: string): Promise<void> {
   console.log(`  ${c.cyan}${url}${c.reset}`);
   console.log(`  ${c.gray}  ${fieldCount} field${fieldCount === 1 ? "" : "s"} locked → saved to ${c.cyan}apidrift.contract.json${c.reset}`);
   console.log(`\n  ${c.gray}Any deviation from this schema will trigger a contract violation.${c.reset}\n`);
+}
+
+async function cmdUnlock(url: string): Promise<void> {
+  const { unlockContract, hasContract } = await getModules();
+
+  if (!url) {
+    console.error(`  ${c.red}Error:${c.reset} URL required\n  Usage: ${c.cyan}apidrift unlock <url>${c.reset}`);
+    process.exit(1);
+  }
+
+  if (!hasContract(url)) {
+    console.log(`\n  ${c.yellow}No contract found for:${c.reset} ${url}\n`);
+    return;
+  }
+
+  unlockContract(url);
+  console.log(`\n  ${c.green}✔${c.reset} Contract removed for:\n  ${c.cyan}${url}${c.reset}\n`);
 }
 
 async function cmdContracts(flags: Record<string, string | boolean> = {}): Promise<void> {
@@ -762,12 +779,16 @@ async function cmdInspect(url: string, flags: Record<string, string | boolean> =
     const opt = node.optional ? c.gray + "?" + c.reset : "";
     const nullable = node.nullable ? `${c.gray} | null${c.reset}` : "";
     let typeStr = `${c.yellow}${node.type}${c.reset}`;
-    if (node.type === "array" && node.items) typeStr = `${c.yellow}${node.items.type}[]${c.reset}`;
-    if (node.type === "object" && node.children) {
+    if (node.enum) {
+      typeStr = `${c.magenta}enum(${node.enum.join("|")})${c.reset}`;
+    } else if (node.type === "array" && node.items) {
+      typeStr = `${c.yellow}${node.items.type}[]${c.reset}`;
+    } else if (node.type === "object" && node.children) {
       const childKeys = Object.keys(node.children).join(", ");
       typeStr = `${c.yellow}object${c.reset} ${c.gray}{ ${truncate(childKeys, 40)} }${c.reset}`;
     }
-    console.log(`  ${c.gray}  ${field}${c.reset}${opt}  ${typeStr}${nullable}`);
+    const pattern = node.pattern ? `  ${c.dim}(pattern: ${node.pattern})${c.reset}` : "";
+    console.log(`  ${c.gray}  ${field}${c.reset}${opt}  ${typeStr}${nullable}${pattern}`);
   }
   console.log("");
 }
@@ -1146,9 +1167,6 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
 // ─── Help ───────────────────────────────────────────────────────────────────
 
 async function cmdCiGen(): Promise<void> {
-  const fs = await import('fs');
-  const path = await import('path');
-  
   const workflowDir = path.join(process.cwd(), '.github', 'workflows');
   const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
   
@@ -1221,6 +1239,7 @@ function printHelp(): void {
     ["compare <f1> <f2>", "Diff two local JSON files"],
     ["types [output]", "Generate TypeScript types from snapshots"],
     ["lock <url>", "Lock current schema as a contract"],
+    ["unlock <url>", "Remove a locked contract"],
     ["contracts", "List all locked contracts"],
     ["check", "CI mode: exit 1 if breaking drift exists"],
     ["clear [url]", "Remove snapshot(s) and history"],
@@ -1308,6 +1327,7 @@ async function main(): Promise<void> {
     case "compare":   await cmdCompare(args[1], args[2], flags); break;
     case "types":     await cmdTypes(args[1]); break;
     case "lock":      await cmdLock(args[1]); break;
+    case "unlock":    await cmdUnlock(args[1]); break;
     case "contracts": await cmdContracts(flags); break;
     case "report":    await cmdReport(flags as Record<string, string | boolean>); break;
     case "ci-gen":    await cmdCiGen(); break;

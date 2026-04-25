@@ -247,7 +247,22 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                         </div>
                         
                         <div id="details-${idx}" class="hidden p-6 bg-gray-50 border-t border-gray-100">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Schema</h4>
+                                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                        <div class="max-h-80 overflow-y-auto p-4 text-xs font-mono">
+                                            ${Object.entries(s.schema).map(([field, node]) => {
+                                                const opt = node.optional ? '<span class="text-gray-400">?</span>' : '';
+                                                const nullable = node.nullable ? '<span class="text-gray-400"> | null</span>' : '';
+                                                let typeStr = `<span class="text-yellow-600">${node.type}</span>`;
+                                                if (node.enum) typeStr = `<span class="text-purple-600">enum(${node.enum.join('|')})</span>`;
+                                                else if (node.type === 'array' && node.items) typeStr = `<span class="text-yellow-600">${node.items.type}[]</span>`;
+                                                return `<div class="mb-1"><span class="text-cyan-700 font-bold">${field}</span>${opt}: ${typeStr}${nullable}</div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                </div>
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Schema Evolution</h4>
                                     <canvas id="chart-${idx}" class="w-full h-48"></canvas>

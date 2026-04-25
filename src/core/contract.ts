@@ -7,9 +7,11 @@ export interface ContractField {
   type: string;
   optional?: boolean;
   nullable?: boolean;
+  children?: Record<string, ContractField>;
+  items?: ContractField;
 }
 
-export type Contract = Record<string, ContractField | string>;
+export type Contract = Record<string, ContractField>;
 
 export interface ContractViolation {
   field: string;
@@ -76,19 +78,91 @@ export function lockContract(endpoint: string, schema: Schema): void {
   saveContracts(store);
 }
 
+/**
+ * Remove contract for an endpoint
+ */
+export function unlockContract(endpoint: string): void {
+  const store = loadContracts();
+  delete store.contracts[endpoint];
+  saveContracts(store);
+}
+
 function schemaNodeToContract(node: SchemaNode): ContractField {
   const field: ContractField = { type: node.type };
   if (node.optional) field.optional = true;
   if (node.nullable) field.nullable = true;
+  if (node.children) {
+    field.children = {};
+    for (const [key, child] of Object.entries(node.children)) {
+      field.children[key] = schemaNodeToContract(child);
+    }
+  }
+  if (node.items) {
+    field.items = schemaNodeToContract(node.items);
+  }
   return field;
 }
 
-function getExpectedType(field: ContractField | string): string {
-  if (typeof field === "string") return field;
+function getExpectedType(field: ContractField): string {
   let t = field.type;
+  if (field.type === "array" && field.items) {
+    t = `${getExpectedType(field.items)}[]`;
+  }
   if (field.nullable) t += " | null";
   if (field.optional) t += "?";
   return t;
+}
+
+function validateNode(
+  path: string,
+  actual: SchemaNode | undefined,
+  expected: ContractField,
+  violations: ContractViolation[]
+): void {
+  const expectedTypeDisplay = getExpectedType(expected);
+
+  if (!actual) {
+    if (!expected.optional) {
+      violations.push({
+        field: path,
+        expected: expectedTypeDisplay,
+        actual: "missing",
+        description: `Required field \`${path}\` is missing from API response`,
+      });
+    }
+    return;
+  }
+
+  const actualType = actual.type + (actual.nullable ? " | null" : "");
+  const expectedType = expected.type + (expected.nullable ? " | null" : "");
+
+  if (actualType !== expectedType && expected.type !== "unknown") {
+    violations.push({
+      field: path,
+      expected: expectedType,
+      actual: actualType,
+      description: `Field \`${path}\` type mismatch: expected ${expectedType}, got ${actualType}`,
+    });
+    return;
+  }
+
+  // Deep check objects
+  if (expected.type === "object" && expected.children) {
+    const actualChildren = actual.children || {};
+    for (const [key, expectedChild] of Object.entries(expected.children)) {
+      validateNode(
+        path ? `${path}.${key}` : key,
+        actualChildren[key],
+        expectedChild,
+        violations
+      );
+    }
+  }
+
+  // Deep check arrays
+  if (expected.type === "array" && expected.items && actual.items) {
+    validateNode(`${path}[]`, actual.items, expected.items, violations);
+  }
 }
 
 /**
@@ -107,40 +181,8 @@ export function enforceContract(
 
   const violations: ContractViolation[] = [];
 
-  // Check all contract fields exist in schema
   for (const [field, expected] of Object.entries(contract)) {
-    const actual = schema[field];
-    const expectedType = getExpectedType(expected);
-
-    if (!actual) {
-      const isOptional =
-        typeof expected === "object" && expected.optional;
-      if (!isOptional) {
-        violations.push({
-          field,
-          expected: expectedType,
-          actual: "missing",
-          description: `Required field \`${field}\` is missing from API response`,
-        });
-      }
-      continue;
-    }
-
-    const actualType =
-      actual.type + (actual.nullable ? " | null" : "");
-    const contractType =
-      typeof expected === "string"
-        ? expected
-        : expected.type + (expected.nullable ? " | null" : "");
-
-    if (actualType !== contractType) {
-      violations.push({
-        field,
-        expected: contractType,
-        actual: actualType,
-        description: `Field \`${field}\` type mismatch: expected ${contractType}, got ${actualType}`,
-      });
-    }
+    validateNode(field, schema[field], expected, violations);
   }
 
   return {
