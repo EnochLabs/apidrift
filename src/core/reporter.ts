@@ -204,7 +204,7 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
         </header>
 
         <main>
-            <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Tracked Endpoints</div>
                     <div class="text-3xl font-bold text-gray-800">${snapshots.length}</div>
@@ -217,9 +217,17 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Breaking Changes</div>
                     <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0), 0)}</div>
                 </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="text-sm font-medium text-gray-400 uppercase mb-1">Avg Latency</div>
+                    <div class="text-3xl font-bold text-cyan-600">${(snapshots.reduce((acc, s) => acc + (s.avgLatency || 0), 0) / (snapshots.filter(s => s.avgLatency).length || 1)).toFixed(1)}ms</div>
+                </div>
             </section>
 
-            <section class="space-y-8">
+            <div class="mb-8">
+                <input type="text" id="endpointSearch" onkeyup="filterEndpoints()" placeholder="Search endpoints..." class="w-full p-4 rounded-xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none">
+            </div>
+
+            <section class="space-y-8" id="endpointList">
                 <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
                 ${snapshots.map((s, idx) => {
                     const h = history.history[s.endpoint] || { entries: [] };
@@ -227,13 +235,14 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                     const stabilityScore = Math.max(0, 100 - (h.entries.length - 1) * 5 - breakingCount * 15);
                     
                     return `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden endpoint-card" data-endpoint="${s.endpoint}">
                         <div class="p-6 border-b border-gray-50 flex justify-between items-start">
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-lg font-bold text-cyan-600 truncate mb-1" title="${s.endpoint}">${s.endpoint}</h3>
                                 <div class="flex items-center space-x-4 text-sm text-gray-500">
                                     <span>${Object.keys(s.schema).length} fields</span>
                                     <span>${s.responseCount} responses</span>
+                                    <span>${s.avgLatency ? s.avgLatency.toFixed(1) + 'ms avg' : 'N/A latency'}</span>
                                     <span>Last seen ${new Date(s.capturedAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -247,7 +256,7 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                         </div>
                         
                         <div id="details-${idx}" class="hidden p-6 bg-gray-50 border-t border-gray-100">
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Schema</h4>
                                     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -255,10 +264,11 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                                             ${Object.entries(s.schema).map(([field, node]) => {
                                                 const opt = node.optional ? '<span class="text-gray-400">?</span>' : '';
                                                 const nullable = node.nullable ? '<span class="text-gray-400"> | null</span>' : '';
+                                                const sensitive = node.sensitive ? ' <span class="bg-red-100 text-red-600 px-1 rounded text-[10px] font-bold">SENSITIVE</span>' : '';
                                                 let typeStr = `<span class="text-yellow-600">${node.type}</span>`;
                                                 if (node.enum) typeStr = `<span class="text-purple-600">enum(${node.enum.join('|')})</span>`;
                                                 else if (node.type === 'array' && node.items) typeStr = `<span class="text-yellow-600">${node.items.type}[]</span>`;
-                                                return `<div class="mb-1"><span class="text-cyan-700 font-bold">${field}</span>${opt}: ${typeStr}${nullable}</div>`;
+                                                return `<div class="mb-1"><span class="text-cyan-700 font-bold">${field}</span>${opt}: ${typeStr}${nullable}${sensitive}</div>`;
                                             }).join('')}
                                         </div>
                                     </div>
@@ -266,6 +276,10 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Schema Evolution</h4>
                                     <canvas id="chart-${idx}" class="w-full h-48"></canvas>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Latency (ms)</h4>
+                                    <canvas id="latency-chart-${idx}" class="w-full h-48"></canvas>
                                 </div>
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Change History</h4>
@@ -311,12 +325,26 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
     <script>
         const appData = ${JSON.stringify(data)};
 
+        function filterEndpoints() {
+            const query = document.getElementById('endpointSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.endpoint-card');
+            cards.forEach(card => {
+                const endpoint = card.getAttribute('data-endpoint').toLowerCase();
+                if (endpoint.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
         function toggleDetails(id) {
             const el = document.getElementById(id);
             el.classList.toggle('hidden');
             if (!el.classList.contains('hidden')) {
                 const idx = id.split('-')[1];
                 renderChart(idx);
+                renderLatencyChart(idx);
             }
         }
 
@@ -325,7 +353,7 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
             const ctx = document.getElementById(canvasId).getContext('2d');
             const h = appData.history.history[appData.snapshots[idx].endpoint];
             
-            if (window['chart_obj_' + idx]) return;
+            if (window['chart_obj_' + idx] || !h) return;
 
             window['chart_obj_' + idx] = new Chart(ctx, {
                 type: 'line',
@@ -346,6 +374,37 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                     scales: {
                         y: { beginAtZero: true, ticks: { stepSize: 1 } },
                         x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderLatencyChart(idx) {
+            const canvasId = 'latency-chart-' + idx;
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const snap = appData.snapshots[idx];
+            
+            if (window['latency_chart_obj_' + idx] || !snap.latencyHistory) return;
+
+            window['latency_chart_obj_' + idx] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: snap.latencyHistory.map((_, i) => i + 1),
+                    datasets: [{
+                        label: 'Latency',
+                        data: snap.latencyHistory,
+                        borderColor: '#10b981',
+                        backgroundColor: '#10b98122',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true },
+                        x: { display: false }
                     }
                 }
             });
