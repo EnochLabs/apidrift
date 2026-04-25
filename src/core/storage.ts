@@ -7,6 +7,8 @@ export interface Snapshot {
   schema: Schema;
   capturedAt: string;
   responseCount: number; // how many times we've seen this endpoint
+  avgLatency?: number;
+  latencyHistory?: number[];
 }
 
 export interface SnapshotStore {
@@ -63,14 +65,28 @@ export function getSnapshot(endpoint: string): Snapshot | null {
   return store.snapshots[endpoint] ?? null;
 }
 
-export function saveSnapshot(endpoint: string, schema: Schema): Snapshot {
+export function saveSnapshot(endpoint: string, schema: Schema, latency?: number): Snapshot {
   const store = loadStore();
   const existing = store.snapshots[endpoint];
+
+  let avgLatency = existing?.avgLatency;
+  const latencyHistory = existing?.latencyHistory ?? [];
+
+  if (latency !== undefined) {
+    latencyHistory.push(latency);
+    if (latencyHistory.length > 20) latencyHistory.shift();
+
+    const sum = latencyHistory.reduce((a, b) => a + b, 0);
+    avgLatency = sum / latencyHistory.length;
+  }
+
   const snapshot: Snapshot = {
     endpoint,
     schema,
     capturedAt: new Date().toISOString(),
     responseCount: (existing?.responseCount ?? 0) + 1,
+    avgLatency,
+    latencyHistory,
   };
   store.snapshots[endpoint] = snapshot;
   saveStore(store);

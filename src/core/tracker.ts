@@ -51,7 +51,8 @@ export function normalizeEndpoint(url: string): string {
 export function track(
   url: string,
   body: unknown,
-  options: TrackOptions = {}
+  options: TrackOptions = {},
+  latency?: number
 ): DriftResult | null {
   const endpoint = options.endpointKey ?? normalizeEndpoint(url);
   const newSchema = extractTopLevelSchema(body);
@@ -72,7 +73,7 @@ export function track(
 
   // ── First time seeing this endpoint ──────────────────────────────────────
   if (!existing) {
-    saveSnapshot(endpoint, newSchema);
+    saveSnapshot(endpoint, newSchema, latency);
     appendHistory(endpoint, newSchema, [], 1);
 
     // Seed data drift baseline even on first sight
@@ -88,15 +89,35 @@ export function track(
   const result = diffSchemas(endpoint, existing.schema, newSchema);
 
   if (result.hasChanges) {
-    saveSnapshot(endpoint, newSchema);
+    saveSnapshot(endpoint, newSchema, latency);
     appendHistory(endpoint, newSchema, result.changes, existing.responseCount + 1);
 
     if (!options.silent) reportDrift(result);
+
+    // Webhook support
+    const webhookUrl = process.env.APIDRIFT_WEBHOOK;
+    if (webhookUrl && (result.hasBreaking || process.env.APIDRIFT_VERBOSE)) {
+      import("https").then(https => {
+        const url = new URL(webhookUrl);
+        const payload = JSON.stringify({
+          text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map(c => `- ${c.description}`).join("\n")}`,
+          endpoint,
+          changes: result.changes
+        });
+        const req = https.request(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Content-Length": payload.length }
+        });
+        req.write(payload);
+        req.end();
+      }).catch(() => {});
+    }
+
     options.onDrift?.(result);
     if (result.hasBreaking) options.onBreaking?.(result);
   } else {
     // No schema change — still update response count
-    saveSnapshot(endpoint, newSchema);
+    saveSnapshot(endpoint, newSchema, latency);
     if (!options.silent) reportNoDrift(endpoint);
   }
 

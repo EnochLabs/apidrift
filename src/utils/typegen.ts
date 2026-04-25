@@ -36,17 +36,21 @@ function nodeToTS(node: SchemaNode, indent: number = 0): string {
 
   if (node.enum && node.enum.length > 0) {
     base = node.enum.map((v) => JSON.stringify(v)).join(" | ");
+    if (node.sensitive) base += ` /* sensitive */`;
   } else {
     switch (node.type) {
       case "string":
         base = "string";
         if (node.pattern) base += ` /* pattern: ${node.pattern} */`;
+        if (node.sensitive) base += ` /* sensitive */`;
         break;
       case "number":
         base = "number";
+        if (node.sensitive) base += ` /* sensitive */`;
         break;
       case "boolean":
         base = "boolean";
+        if (node.sensitive) base += ` /* sensitive */`;
         break;
       case "null":
         base = "null";

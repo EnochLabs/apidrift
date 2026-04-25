@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeEndpoint = normalizeEndpoint;
 exports.track = track;
@@ -39,7 +72,7 @@ function normalizeEndpoint(url) {
  *
  * Returns the DriftResult if changes were found, null otherwise.
  */
-function track(url, body, options = {}) {
+function track(url, body, options = {}, latency) {
     const endpoint = options.endpointKey ?? normalizeEndpoint(url);
     const newSchema = (0, schema_js_1.extractTopLevelSchema)(body);
     const existing = (0, storage_js_1.getSnapshot)(endpoint);
@@ -57,7 +90,7 @@ function track(url, body, options = {}) {
     }
     // ── First time seeing this endpoint ──────────────────────────────────────
     if (!existing) {
-        (0, storage_js_1.saveSnapshot)(endpoint, newSchema);
+        (0, storage_js_1.saveSnapshot)(endpoint, newSchema, latency);
         (0, history_js_1.appendHistory)(endpoint, newSchema, [], 1);
         // Seed data drift baseline even on first sight
         if (options.dataDrift !== false) {
@@ -70,17 +103,35 @@ function track(url, body, options = {}) {
     // ── Schema diff ───────────────────────────────────────────────────────────
     const result = (0, diff_js_1.diffSchemas)(endpoint, existing.schema, newSchema);
     if (result.hasChanges) {
-        (0, storage_js_1.saveSnapshot)(endpoint, newSchema);
+        (0, storage_js_1.saveSnapshot)(endpoint, newSchema, latency);
         (0, history_js_1.appendHistory)(endpoint, newSchema, result.changes, existing.responseCount + 1);
         if (!options.silent)
             (0, reporter_js_1.reportDrift)(result);
+        // Webhook support
+        const webhookUrl = process.env.APIDRIFT_WEBHOOK;
+        if (webhookUrl && (result.hasBreaking || process.env.APIDRIFT_VERBOSE)) {
+            Promise.resolve().then(() => __importStar(require("https"))).then(https => {
+                const url = new URL(webhookUrl);
+                const payload = JSON.stringify({
+                    text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map(c => `- ${c.description}`).join("\n")}`,
+                    endpoint,
+                    changes: result.changes
+                });
+                const req = https.request(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Content-Length": payload.length }
+                });
+                req.write(payload);
+                req.end();
+            }).catch(() => { });
+        }
         options.onDrift?.(result);
         if (result.hasBreaking)
             options.onBreaking?.(result);
     }
     else {
         // No schema change — still update response count
-        (0, storage_js_1.saveSnapshot)(endpoint, newSchema);
+        (0, storage_js_1.saveSnapshot)(endpoint, newSchema, latency);
         if (!options.silent)
             (0, reporter_js_1.reportNoDrift)(endpoint);
     }

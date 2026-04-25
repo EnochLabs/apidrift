@@ -158,6 +158,29 @@ assert(typeOutput.includes('status: "open" | "closed"'), "generates union for en
 assert(typeOutput.includes('tags: string[]'), "generates correct array types");
 assert(typeOutput.includes('meta: {'), "generates nested objects with braces");
 
+describe("Pro Features — Patterns and Latency");
+const { extractSchema } = m("core/schema.js");
+
+const patternsBody = {
+  ip: "192.168.1.1",
+  color: "#ff0000",
+  phone: "+1234567890",
+  password: "secret_password"
+};
+const ps = extractSchema(patternsBody);
+assert(ps.children.ip.pattern === "ipv4", "detects ipv4 pattern");
+assert(ps.children.color.pattern === "hexColor", "detects hexColor pattern");
+assert(ps.children.phone.pattern === "phone", "detects phone pattern");
+assert(ps.children.password.sensitive === true, "detects sensitive field");
+
+const { saveSnapshot } = m("core/storage.js");
+const latSchema = { test: { type: "number" } };
+saveSnapshot("https://api.latency.test", latSchema, 100);
+saveSnapshot("https://api.latency.test", latSchema, 200);
+const latSnap = getSnapshot("https://api.latency.test");
+assert(latSnap.avgLatency === 150, "tracks average latency");
+assert(latSnap.latencyHistory.length === 2, "tracks latency history");
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 console.log("\n" + "─".repeat(52));

@@ -9,6 +9,8 @@ export interface ContractField {
   nullable?: boolean;
   children?: Record<string, ContractField>;
   items?: ContractField;
+  enum?: string[];
+  pattern?: string;
 }
 
 export type Contract = Record<string, ContractField>;
@@ -91,6 +93,8 @@ function schemaNodeToContract(node: SchemaNode): ContractField {
   const field: ContractField = { type: node.type };
   if (node.optional) field.optional = true;
   if (node.nullable) field.nullable = true;
+  if (node.enum) field.enum = node.enum;
+  if (node.pattern) field.pattern = node.pattern;
   if (node.children) {
     field.children = {};
     for (const [key, child] of Object.entries(node.children)) {
@@ -144,6 +148,26 @@ function validateNode(
       description: `Field \`${path}\` type mismatch: expected ${expectedType}, got ${actualType}`,
     });
     return;
+  }
+
+  // Enum check
+  if (expected.enum && JSON.stringify(expected.enum) !== JSON.stringify(actual.enum)) {
+    violations.push({
+      field: path,
+      expected: `enum(${expected.enum.join(',')})`,
+      actual: actual.enum ? `enum(${actual.enum.join(',')})` : 'none',
+      description: `Field \`${path}\` enum mismatch`,
+    });
+  }
+
+  // Pattern check
+  if (expected.pattern && expected.pattern !== actual.pattern) {
+    violations.push({
+      field: path,
+      expected: `pattern:${expected.pattern}`,
+      actual: actual.pattern || 'none',
+      description: `Field \`${path}\` pattern mismatch`,
+    });
   }
 
   // Deep check objects

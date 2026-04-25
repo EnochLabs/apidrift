@@ -9,6 +9,7 @@ export interface SchemaNode {
     children?: Record<string, SchemaNode>;
     items?: SchemaNode;
     nullable?: boolean;
+    sensitive?: boolean;
     enum?: string[];
     pattern?: string;
     _samples?: string[];

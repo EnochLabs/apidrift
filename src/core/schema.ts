@@ -17,6 +17,7 @@ export interface SchemaNode {
   children?: Record<string, SchemaNode>; // for objects
   items?: SchemaNode; // for arrays
   nullable?: boolean;
+  sensitive?: boolean;
   // Smart Inference
   enum?: string[];
   pattern?: string;
@@ -31,6 +32,10 @@ const PATTERNS = {
   isoDate: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/,
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   url: /^https?:\/\/[^\s/$.?#].[^\s]*$/i,
+  ipv4: /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/,
+  ipv6: /^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$/,
+  phone: /^\+?[1-9]\d{1,14}$/,
+  hexColor: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
 };
 
 /**
@@ -98,7 +103,14 @@ export function extractSchema(value: unknown, seen: WeakSet<object> = new WeakSe
 
     const children: Record<string, SchemaNode> = {};
     for (const key of Object.keys(obj)) {
-      children[key] = extractSchema(obj[key], seen);
+      const node = extractSchema(obj[key], seen);
+      // Heuristic for sensitive fields
+      const sensitiveKeywords = ["password", "token", "email", "secret", "card", "ssn", "phone", "key", "credential", "auth"];
+      const lowerKey = key.toLowerCase();
+      if (sensitiveKeywords.some(kw => lowerKey.includes(kw))) {
+        node.sensitive = true;
+      }
+      children[key] = node;
     }
     return { type: "object", children };
   }

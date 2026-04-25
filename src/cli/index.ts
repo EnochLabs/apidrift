@@ -1166,11 +1166,12 @@ async function cmdStats(flags: Record<string, string | boolean>): Promise<void> 
 
 // ─── Help ───────────────────────────────────────────────────────────────────
 
-async function cmdCiGen(): Promise<void> {
-  const workflowDir = path.join(process.cwd(), '.github', 'workflows');
-  const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
-  
-  const yaml = `name: apidrift-check
+async function cmdCiGen(platform: string = "github"): Promise<void> {
+  if (platform === "github") {
+    const workflowDir = path.join(process.cwd(), '.github', 'workflows');
+    const workflowFile = path.join(workflowDir, 'apidrift-check.yml');
+
+    const yaml = `name: apidrift-check
 
 on:
   pull_request:
@@ -1202,13 +1203,33 @@ jobs:
           APIDRIFT_CI: 1
 `;
 
-  if (!fs.existsSync(workflowDir)) {
-    fs.mkdirSync(workflowDir, { recursive: true });
+    if (!fs.existsSync(workflowDir)) {
+      fs.mkdirSync(workflowDir, { recursive: true });
+    }
+
+    fs.writeFileSync(workflowFile, yaml, "utf-8");
+    console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
+    console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
+  } else if (platform === "gitlab") {
+    const gitlabCiFile = path.join(process.cwd(), '.gitlab-ci.yml');
+    const yaml = `apidrift-check:
+  image: node:20
+  script:
+    - npm install
+    - npx apidrift check --json
+  variables:
+    APIDRIFT_CI: "1"
+  only:
+    - merge_requests
+    - main
+    - master
+`;
+    fs.writeFileSync(gitlabCiFile, yaml, "utf-8");
+    console.log(`\n  ${c.green}✔  GitLab CI configuration generated:${c.reset} .gitlab-ci.yml`);
+  } else {
+    console.error(`\n  ${c.red}Error:${c.reset} Unsupported platform: ${platform}`);
+    console.log(`  Supported: github, gitlab\n`);
   }
-  
-  fs.writeFileSync(workflowFile, yaml, "utf-8");
-  console.log(`\n  ${c.green}✔  GitHub Action generated:${c.reset} .github/workflows/apidrift-check.yml`);
-  console.log(`  ${c.gray}This workflow will now run on every PR to ensure no breaking API changes are merged.${c.reset}\n`);
 }
 
 
@@ -1330,7 +1351,7 @@ async function main(): Promise<void> {
     case "unlock":    await cmdUnlock(args[1]); break;
     case "contracts": await cmdContracts(flags); break;
     case "report":    await cmdReport(flags as Record<string, string | boolean>); break;
-    case "ci-gen":    await cmdCiGen(); break;
+    case "ci-gen":    await cmdCiGen(args[1]); break;
     case "check":     { const code = await cmdCheck(flags); process.exit(code); break; }
     case "clear":     await cmdClear(args[1]); break;
     case "dashboard": {

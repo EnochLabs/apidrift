@@ -88,14 +88,25 @@ function getSnapshot(endpoint) {
     const store = loadStore();
     return store.snapshots[endpoint] ?? null;
 }
-function saveSnapshot(endpoint, schema) {
+function saveSnapshot(endpoint, schema, latency) {
     const store = loadStore();
     const existing = store.snapshots[endpoint];
+    let avgLatency = existing?.avgLatency;
+    const latencyHistory = existing?.latencyHistory ?? [];
+    if (latency !== undefined) {
+        latencyHistory.push(latency);
+        if (latencyHistory.length > 20)
+            latencyHistory.shift();
+        const sum = latencyHistory.reduce((a, b) => a + b, 0);
+        avgLatency = sum / latencyHistory.length;
+    }
     const snapshot = {
         endpoint,
         schema,
         capturedAt: new Date().toISOString(),
         responseCount: (existing?.responseCount ?? 0) + 1,
+        avgLatency,
+        latencyHistory,
     };
     store.snapshots[endpoint] = snapshot;
     saveStore(store);
