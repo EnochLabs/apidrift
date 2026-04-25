@@ -1,12 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import {
-  FieldStats,
-  NumericSample,
-  createSample,
-  updateSample,
-  extractNumericPaths,
-} from "./datadrift.js";
+import { FieldStats, createSample, updateSample, extractNumericPaths } from "./datadrift.js";
 
 export interface DataDriftStore {
   version: string;

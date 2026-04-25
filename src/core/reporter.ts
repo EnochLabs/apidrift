@@ -15,17 +15,6 @@ const c = {
   bgYellow: "\x1b[43m",
 };
 
-function impactIcon(impact: ChangeImpact): string {
-  switch (impact) {
-    case "BREAKING":
-      return `${c.red}✖ BREAKING${c.reset}`;
-    case "NON_BREAKING":
-      return `${c.yellow}△ NON-BREAKING${c.reset}`;
-    case "INFO":
-      return `${c.cyan}ℹ INFO${c.reset}`;
-  }
-}
-
 function impactPrefix(impact: ChangeImpact): string {
   switch (impact) {
     case "BREAKING":

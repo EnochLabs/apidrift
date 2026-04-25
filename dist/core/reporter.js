@@ -12,16 +12,6 @@ const c = {
     bgRed: "\x1b[41m",
     bgYellow: "\x1b[43m",
 };
-function impactIcon(impact) {
-    switch (impact) {
-        case "BREAKING":
-            return `${c.red}✖ BREAKING${c.reset}`;
-        case "NON_BREAKING":
-            return `${c.yellow}△ NON-BREAKING${c.reset}`;
-        case "INFO":
-            return `${c.cyan}ℹ INFO${c.reset}`;
-    }
-}
 function impactPrefix(impact) {
     switch (impact) {
         case "BREAKING":
@@ -365,7 +355,7 @@ export async function generateHtmlReport(outputPath) {
             const canvasId = 'latency-chart-' + idx;
             const ctx = document.getElementById(canvasId).getContext('2d');
             const snap = appData.snapshots[idx];
-
+            
             if (window['latency_chart_obj_' + idx] || !snap.latencyHistory) return;
 
             window['latency_chart_obj_' + idx] = new Chart(ctx, {

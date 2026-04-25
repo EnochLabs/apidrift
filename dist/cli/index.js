@@ -109,31 +109,6 @@ function relativeTime(iso) {
         return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
 }
-function box(title, lines, color = c.cyan) {
-    const width = Math.max(title.length + 4, ...lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4));
-    const top = `${color}┌${"─".repeat(width - 2)}┐${c.reset}`;
-    const mid = `${color}│${c.reset} ${c.bold}${title}${c.reset}${" ".repeat(width - title.length - 3)}${color}│${c.reset}`;
-    const sep = `${color}├${"─".repeat(width - 2)}┤${c.reset}`;
-    const rows = lines.map((l) => {
-        const plain = l.replace(/\x1b\[[0-9;]*m/g, "");
-        const pad = width - plain.length - 3;
-        return `${color}│${c.reset} ${l}${" ".repeat(Math.max(0, pad))}${color}│${c.reset}`;
-    });
-    const bot = `${color}└${"─".repeat(width - 2)}┘${c.reset}`;
-    return [top, mid, sep, ...rows, bot].join("\n");
-}
-/**
- * Emit output: if --json flag is set, write JSON to stdout; otherwise print
- * the human-readable console output via the provided printFn.
- */
-function outputOrJson(jsonPayload, printFn, flags) {
-    if (flags["--json"]) {
-        process.stdout.write(JSON.stringify(jsonPayload, null, 2) + "\n");
-    }
-    else {
-        printFn();
-    }
-}
 // ─── Commands ───────────────────────────────────────────────────────────────
 async function cmdInit() {
     const dir = path.join(process.cwd(), ".apidrift");
@@ -291,7 +266,7 @@ async function cmdDiff(url, flags) {
  */
 async function cmdDiffWatchFile(url, flags) {
     const { getStoreDirPath } = await import("../core/storage.js");
-    const { extractTopLevelSchema, diffSchemas, getSnapshot, reportDrift } = await getModules();
+    const { diffSchemas, getSnapshot, reportDrift } = await getModules();
     const snapshotsFile = path.join(getStoreDirPath(), "snapshots.json");
     if (!flags["--json"]) {
         console.log(`\n  ${c.cyan}${c.bold}Watching snapshots file${c.reset}`);

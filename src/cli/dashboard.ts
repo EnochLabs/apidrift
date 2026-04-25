@@ -6,7 +6,7 @@
  */
 
 import { listSnapshots, Snapshot } from "../core/storage.js";
-import { getAllHistory, EndpointHistory, schemaChecksum } from "../core/history.js";
+import { getAllHistory, EndpointHistory } from "../core/history.js";
 import { loadContracts } from "../core/contract.js";
 
 // ─── ANSI ────────────────────────────────────────────────────────────────────
@@ -54,20 +54,11 @@ function move(row: number, col: number): string {
 function clearScreen(): string {
   return `${ESC}2J${ESC}H`;
 }
-function clearLine(): string {
-  return `${ESC}2K`;
-}
 function hideCursor(): string {
   return `${ESC}?25l`;
 }
 function showCursor(): string {
   return `${ESC}?25h`;
-}
-function saveCursor(): string {
-  return `${ESC}s`;
-}
-function restoreCursor(): string {
-  return `${ESC}u`;
 }
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
@@ -92,7 +83,6 @@ function truncate(str: string, maxLen: number): string {
 }
 
 function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
   return str.replace(/\x1b\[[0-9;]*[mGKHJABCDsuhl?]/g, "");
 }
 
@@ -101,21 +91,6 @@ function stabilityBar(score: number, width = 10): string {
   const empty = width - filled;
   const color = score >= 80 ? A.brightGreen : score >= 50 ? A.yellow : A.brightRed;
   return color + "█".repeat(filled) + A.dim + "░".repeat(empty) + A.reset;
-}
-
-function sparkline(values: number[], width = 8): string {
-  const blocks = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
-  if (values.length === 0) return " ".repeat(width);
-  const slice = values.slice(-width);
-  const min = Math.min(...slice);
-  const max = Math.max(...slice);
-  const range = max - min || 1;
-  return slice
-    .map((v) => {
-      const idx = Math.floor(((v - min) / range) * (blocks.length - 1));
-      return blocks[idx];
-    })
-    .join("");
 }
 
 function computeStabilityScore(hist: EndpointHistory | undefined): number {
@@ -403,7 +378,7 @@ function renderContracts(state: DashState, cols: number): string {
   return lines.join("\n");
 }
 
-function renderHelp(cols: number): string {
+function renderHelp(_cols: number): string {
   const lines: string[] = [];
 
   const section = (title: string): string => `\n  ${A.bold}${A.brightCyan}${title}${A.reset}`;
@@ -458,7 +433,7 @@ function renderFooter(state: DashState, cols: number): string {
     `${A.bgGray}${A.white} q ${A.reset}${A.dim} quit  ${A.reset}`;
 
   const version = `${A.dim}apidrift v1.0.0${A.reset}`;
-  const right = `${A.dim}${state.snapshots.length} endpoints  ·  tick ${state.tick}${A.reset}`;
+  const right = `${A.dim}${state.snapshots.length} endpoints  ·  tick ${state.tick}${A.reset}  ${version}`;
 
   const divider = `${A.dim}${"─".repeat(cols)}${A.reset}`;
   const footer = `  ${keys}${" ".repeat(Math.max(0, cols - stripAnsi(keys).length - stripAnsi(right).length - 4))}${right}`;

@@ -50,20 +50,11 @@ function move(row, col) {
 function clearScreen() {
     return `${ESC}2J${ESC}H`;
 }
-function clearLine() {
-    return `${ESC}2K`;
-}
 function hideCursor() {
     return `${ESC}?25l`;
 }
 function showCursor() {
     return `${ESC}?25h`;
-}
-function saveCursor() {
-    return `${ESC}s`;
-}
-function restoreCursor() {
-    return `${ESC}u`;
 }
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 function getTermSize() {
@@ -85,7 +76,6 @@ function truncate(str, maxLen) {
     return str.slice(0, maxLen - 1) + "…";
 }
 function stripAnsi(str) {
-    // eslint-disable-next-line no-control-regex
     return str.replace(/\x1b\[[0-9;]*[mGKHJABCDsuhl?]/g, "");
 }
 function stabilityBar(score, width = 10) {
@@ -93,21 +83,6 @@ function stabilityBar(score, width = 10) {
     const empty = width - filled;
     const color = score >= 80 ? A.brightGreen : score >= 50 ? A.yellow : A.brightRed;
     return color + "█".repeat(filled) + A.dim + "░".repeat(empty) + A.reset;
-}
-function sparkline(values, width = 8) {
-    const blocks = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
-    if (values.length === 0)
-        return " ".repeat(width);
-    const slice = values.slice(-width);
-    const min = Math.min(...slice);
-    const max = Math.max(...slice);
-    const range = max - min || 1;
-    return slice
-        .map((v) => {
-        const idx = Math.floor(((v - min) / range) * (blocks.length - 1));
-        return blocks[idx];
-    })
-        .join("");
 }
 function computeStabilityScore(hist) {
     if (!hist || hist.entries.length <= 1)
@@ -316,7 +291,7 @@ function renderContracts(state, cols) {
     lines.push(`  ${A.gray}  apidrift unlock <url>   — remove contract${A.reset}`);
     return lines.join("\n");
 }
-function renderHelp(cols) {
+function renderHelp(_cols) {
     const lines = [];
     const section = (title) => `\n  ${A.bold}${A.brightCyan}${title}${A.reset}`;
     const cmd = (key, desc) => `  ${A.bold}${A.yellow}${pad(key, 18)}${A.reset}  ${A.dim}${desc}${A.reset}`;
@@ -353,7 +328,7 @@ function renderFooter(state, cols) {
         `${A.bgGray}${A.white} r ${A.reset}${A.dim} refresh  ${A.reset}` +
         `${A.bgGray}${A.white} q ${A.reset}${A.dim} quit  ${A.reset}`;
     const version = `${A.dim}apidrift v1.0.0${A.reset}`;
-    const right = `${A.dim}${state.snapshots.length} endpoints  ·  tick ${state.tick}${A.reset}`;
+    const right = `${A.dim}${state.snapshots.length} endpoints  ·  tick ${state.tick}${A.reset}  ${version}`;
     const divider = `${A.dim}${"─".repeat(cols)}${A.reset}`;
     const footer = `  ${keys}${" ".repeat(Math.max(0, cols - stripAnsi(keys).length - stripAnsi(right).length - 4))}${right}`;
     return divider + "\n" + footer;

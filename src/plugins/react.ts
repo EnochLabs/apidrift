@@ -26,19 +26,23 @@ interface ReactLike {
 }
 
 function loadReact(): ReactLike {
+  type GlobalReact = {
+    React?: unknown;
+    __apidrift_require?: (id: string) => unknown;
+  };
+
+  const globalCtx = globalThis as unknown as GlobalReact;
   const r =
-    (globalThis as any).React ??
+    globalCtx.React ??
     (() => {
       try {
-        // Dynamic require — only works in CJS / bundler environments
-
-        return (globalThis as any).__apidrift_require?.("react");
+        return globalCtx.__apidrift_require?.("react");
       } catch {
         return null;
       }
     })();
 
-  if (!r?.useState) {
+  if (!r || typeof (r as ReactLike).useState !== "function") {
     throw new Error(
       "[apidrift] React not found. Install react and ensure it is accessible globally, " +
         "or use the programmatic track() API instead."

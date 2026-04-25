@@ -6,7 +6,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import https from "https";
-import http from "http";
+import http, { type IncomingMessage } from "http";
 
 const VERSION = "1.0.0";
 
@@ -76,22 +76,28 @@ async function getModules() {
 // ─── Utils ──────────────────────────────────────────────────────────────────
 async function fetchJson(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const client: any = url.startsWith("https") ? https : http;
-    const req = client.get(url, { headers: { Accept: "application/json" } }, (res: any) => {
-      if (res.statusCode && res.statusCode >= 400) {
-        reject(new Error(`HTTP ${res.statusCode} from ${url}`));
-        return;
-      }
-      let data = "";
-      res.on("data", (chunk: any) => (data += chunk.toString()));
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch {
-          reject(new Error(`Response from ${url} is not valid JSON`));
+    const client = url.startsWith("https") ? https : http;
+    const req = client.get(
+      url,
+      { headers: { Accept: "application/json" } },
+      (res: IncomingMessage) => {
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`HTTP ${res.statusCode} from ${url}`));
+          return;
         }
-      });
-    });
+
+        let data = "";
+        res.on("data", (chunk) => (data += chunk.toString()));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            reject(new Error(`Response from ${url} is not valid JSON`));
+          }
+        });
+      }
+    );
+
     req.on("error", reject);
     req.setTimeout(10000, () => {
       req.destroy();
@@ -113,39 +119,6 @@ function relativeTime(iso: string): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
-}
-
-function box(title: string, lines: string[], color = c.cyan): string {
-  const width = Math.max(
-    title.length + 4,
-    ...lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").length + 4)
-  );
-  const top = `${color}┌${"─".repeat(width - 2)}┐${c.reset}`;
-  const mid = `${color}│${c.reset} ${c.bold}${title}${c.reset}${" ".repeat(width - title.length - 3)}${color}│${c.reset}`;
-  const sep = `${color}├${"─".repeat(width - 2)}┤${c.reset}`;
-  const rows = lines.map((l) => {
-    const plain = l.replace(/\x1b\[[0-9;]*m/g, "");
-    const pad = width - plain.length - 3;
-    return `${color}│${c.reset} ${l}${" ".repeat(Math.max(0, pad))}${color}│${c.reset}`;
-  });
-  const bot = `${color}└${"─".repeat(width - 2)}┘${c.reset}`;
-  return [top, mid, sep, ...rows, bot].join("\n");
-}
-
-/**
- * Emit output: if --json flag is set, write JSON to stdout; otherwise print
- * the human-readable console output via the provided printFn.
- */
-function outputOrJson(
-  jsonPayload: unknown,
-  printFn: () => void,
-  flags: Record<string, string | boolean>
-): void {
-  if (flags["--json"]) {
-    process.stdout.write(JSON.stringify(jsonPayload, null, 2) + "\n");
-  } else {
-    printFn();
-  }
 }
 
 // ─── Commands ───────────────────────────────────────────────────────────────
@@ -340,7 +313,7 @@ async function cmdDiffWatchFile(
   flags: Record<string, string | boolean>
 ): Promise<void> {
   const { getStoreDirPath } = await import("../core/storage.js");
-  const { extractTopLevelSchema, diffSchemas, getSnapshot, reportDrift } = await getModules();
+  const { diffSchemas, getSnapshot, reportDrift } = await getModules();
 
   const snapshotsFile = path.join(getStoreDirPath(), "snapshots.json");
 

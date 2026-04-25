@@ -1,4 +1,4 @@
-import { extractTopLevelSchema, mergeMetadata, SchemaNode } from "./schema.js";
+import { extractTopLevelSchema, mergeMetadata } from "./schema.js";
 import { diffSchemas, DriftResult } from "./diff.js";
 import { getSnapshot, saveSnapshot } from "./storage.js";
 import { reportDrift, reportFirstSeen, reportNoDrift } from "./reporter.js";

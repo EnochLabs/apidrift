@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Schema, SchemaNode } from "./schema.js";
-import { DriftChange } from "./diff.js";
 
 export interface ContractField {
   type: string;

@@ -14,17 +14,17 @@
  */
 import { track } from "../core/tracker.js";
 function loadReact() {
-    const r = globalThis.React ??
+    const globalCtx = globalThis;
+    const r = globalCtx.React ??
         (() => {
             try {
-                // Dynamic require — only works in CJS / bundler environments
-                return globalThis.__apidrift_require?.("react");
+                return globalCtx.__apidrift_require?.("react");
             }
             catch {
                 return null;
             }
         })();
-    if (!r?.useState) {
+    if (!r || typeof r.useState !== "function") {
         throw new Error("[apidrift] React not found. Install react and ensure it is accessible globally, " +
             "or use the programmatic track() API instead.");
     }

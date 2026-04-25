@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { createSample, updateSample, extractNumericPaths, } from "./datadrift.js";
+import { createSample, updateSample, extractNumericPaths } from "./datadrift.js";
 function getDataDriftPath() {
     let dir = process.cwd();
     for (let i = 0; i < 5; i++) {
