@@ -97,20 +97,22 @@ export function track(
     // Webhook support
     const webhookUrl = process.env.APIDRIFT_WEBHOOK;
     if (webhookUrl && (result.hasBreaking || process.env.APIDRIFT_VERBOSE)) {
-      import("https").then(https => {
-        const url = new URL(webhookUrl);
-        const payload = JSON.stringify({
-          text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map(c => `- ${c.description}`).join("\n")}`,
-          endpoint,
-          changes: result.changes
-        });
-        const req = https.request(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Content-Length": payload.length }
-        });
-        req.write(payload);
-        req.end();
-      }).catch(() => {});
+      import("https")
+        .then((https) => {
+          const url = new URL(webhookUrl);
+          const payload = JSON.stringify({
+            text: `⚠ API Drift Detected: ${endpoint}\n${result.changes.map((c) => `- ${c.description}`).join("\n")}`,
+            endpoint,
+            changes: result.changes,
+          });
+          const req = https.request(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Content-Length": payload.length },
+          });
+          req.write(payload);
+          req.end();
+        })
+        .catch(() => {});
     }
 
     options.onDrift?.(result);
@@ -126,10 +128,16 @@ export function track(
     const contractResult = enforceContract(endpoint, newSchema);
     if (!contractResult.passed && !options.silent) {
       const c = {
-        reset: "\x1b[0m", bold: "\x1b[1m", red: "\x1b[31m",
-        yellow: "\x1b[33m", gray: "\x1b[90m", cyan: "\x1b[36m",
+        reset: "\x1b[0m",
+        bold: "\x1b[1m",
+        red: "\x1b[31m",
+        yellow: "\x1b[33m",
+        gray: "\x1b[90m",
+        cyan: "\x1b[36m",
       };
-      console.log(`\n${c.bold}${c.red}🔒 Contract Violated${c.reset}  ${c.gray}${endpoint}${c.reset}`);
+      console.log(
+        `\n${c.bold}${c.red}🔒 Contract Violated${c.reset}  ${c.gray}${endpoint}${c.reset}`
+      );
       for (const v of contractResult.violations) {
         console.log(`   ${c.red}✖${c.reset}  ${c.gray}${v.description}${c.reset}`);
       }
@@ -147,14 +155,23 @@ export function track(
 
       if (dataDriftResult.hasAlerts && !options.silent) {
         const c = {
-          reset: "\x1b[0m", bold: "\x1b[1m", yellow: "\x1b[33m",
-          red: "\x1b[31m", cyan: "\x1b[36m", gray: "\x1b[90m",
+          reset: "\x1b[0m",
+          bold: "\x1b[1m",
+          yellow: "\x1b[33m",
+          red: "\x1b[31m",
+          cyan: "\x1b[36m",
+          gray: "\x1b[90m",
         };
-        console.log(`\n${c.bold}${c.yellow}📊 Data Drift Detected${c.reset}  ${c.gray}${endpoint}${c.reset}`);
+        console.log(
+          `\n${c.bold}${c.yellow}📊 Data Drift Detected${c.reset}  ${c.gray}${endpoint}${c.reset}`
+        );
         for (const alert of dataDriftResult.alerts) {
           const icon = alert.severity === "HIGH" ? c.red + "●" : c.yellow + "◐";
-          const pct = alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`;
-          console.log(`   ${icon}${c.reset}  ${c.gray}${alert.description}  ${c.cyan}(${pct})${c.reset}`);
+          const pct =
+            alert.changePercent > 0 ? `+${alert.changePercent}%` : `${alert.changePercent}%`;
+          console.log(
+            `   ${icon}${c.reset}  ${c.gray}${alert.description}  ${c.cyan}(${pct})${c.reset}`
+          );
         }
         console.log("");
       }
@@ -171,11 +188,7 @@ export function track(
  * Manually compare two JSON bodies without touching the snapshot store.
  * Useful for scripted comparisons and testing.
  */
-export function compare(
-  endpoint: string,
-  oldBody: unknown,
-  newBody: unknown
-): DriftResult {
+export function compare(endpoint: string, oldBody: unknown, newBody: unknown): DriftResult {
   const oldSchema = extractTopLevelSchema(oldBody);
   const newSchema = extractTopLevelSchema(newBody);
   return diffSchemas(endpoint, oldSchema, newSchema);

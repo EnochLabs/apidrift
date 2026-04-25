@@ -1,14 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * apidrift/register — auto-patches global fetch
  * import "apidrift/register"  ← that's it
  */
-const fetch_js_1 = require("./interceptors/fetch.js");
+import { patchFetch } from "./interceptors/fetch.js";
 const silent = process.env.APIDRIFT_SILENT === "1";
 const filterStr = process.env.APIDRIFT_FILTER;
 const filter = filterStr ? (url) => url.includes(filterStr) : undefined;
-(0, fetch_js_1.patchFetch)({
+patchFetch({
     silent,
     filter,
     onBreaking: (result) => {

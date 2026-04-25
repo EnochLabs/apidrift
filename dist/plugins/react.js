@@ -1,4 +1,3 @@
-"use strict";
 /**
  * apidrift/react
  *
@@ -13,22 +12,18 @@
  *   return <div>{data?.name}</div>
  * }
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.useApiDrift = useApiDrift;
-exports.withDriftTracking = withDriftTracking;
-const tracker_js_1 = require("../core/tracker.js");
+import { track } from "../core/tracker.js";
 function loadReact() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = globalThis.React ?? (() => {
-        try {
-            // Dynamic require — only works in CJS / bundler environments
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            return globalThis.__apidrift_require?.("react");
-        }
-        catch {
-            return null;
-        }
-    })();
+    const r = globalThis.React ??
+        (() => {
+            try {
+                // Dynamic require — only works in CJS / bundler environments
+                return globalThis.__apidrift_require?.("react");
+            }
+            catch {
+                return null;
+            }
+        })();
     if (!r?.useState) {
         throw new Error("[apidrift] React not found. Install react and ensure it is accessible globally, " +
             "or use the programmatic track() API instead.");
@@ -39,7 +34,7 @@ function loadReact() {
  * React hook — fetches a URL and automatically tracks schema drift.
  * Re-fetches whenever `options.deps` changes.
  */
-function useApiDrift(url, options = {}) {
+export function useApiDrift(url, options = {}) {
     const React = loadReact();
     const [data, setData] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
@@ -56,7 +51,7 @@ function useApiDrift(url, options = {}) {
                 if (cancelled)
                     return;
                 setData(body);
-                const result = (0, tracker_js_1.track)(url, body, {
+                const result = track(url, body, {
                     silent: options.silent,
                     onDrift: (r) => {
                         setDrift(r);
@@ -75,7 +70,9 @@ function useApiDrift(url, options = {}) {
                     setLoading(false);
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [url, ...(options.deps ?? [])]);
     return { data, loading, error, drift, hasBreaking: drift?.hasBreaking ?? false };
 }
@@ -86,10 +83,10 @@ function useApiDrift(url, options = {}) {
  * const getUser = withDriftTracking('/api/user', () => api.getUser())
  * const { data, drift } = await getUser()
  */
-function withDriftTracking(endpoint, fetcher, options = {}) {
+export function withDriftTracking(endpoint, fetcher, options = {}) {
     return async () => {
         const data = await fetcher();
-        const drift = (0, tracker_js_1.track)(endpoint, data, { silent: options.silent });
+        const drift = track(endpoint, data, { silent: options.silent });
         return { data, drift };
     };
 }

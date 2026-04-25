@@ -52,9 +52,9 @@ export interface DataDriftResult {
  *   MEAN_SHIFT         — requires MIN_SAMPLES_FOR_MEAN_SHIFT
  *   RANGE_EXCEEDED     — requires MIN_SAMPLES_FOR_RANGE
  */
-const MIN_SAMPLES_FOR_SPIKE = 10;       // was implicitly 5 — needs stable stddev
-const MIN_SAMPLES_FOR_MEAN_SHIFT = 10;  // was 3 — far too eager
-const MIN_SAMPLES_FOR_RANGE = 10;       // was 3 — far too eager
+const MIN_SAMPLES_FOR_SPIKE = 10; // was implicitly 5 — needs stable stddev
+const MIN_SAMPLES_FOR_MEAN_SHIFT = 10; // was 3 — far too eager
+const MIN_SAMPLES_FOR_RANGE = 10; // was 3 — far too eager
 
 /**
  * Extract all numeric leaf values from a JSON object, with dot-paths
@@ -193,10 +193,7 @@ export function detectDataDrift(
     // Range exceeded (outside min-max envelope)
     if (stats.samples.count >= MIN_SAMPLES_FOR_RANGE) {
       const rangeMargin = (stats.samples.max - stats.samples.min) * 0.1;
-      if (
-        value < stats.samples.min - rangeMargin ||
-        value > stats.samples.max + rangeMargin
-      ) {
+      if (value < stats.samples.min - rangeMargin || value > stats.samples.max + rangeMargin) {
         alerts.push({
           path,
           kind: "RANGE_EXCEEDED",

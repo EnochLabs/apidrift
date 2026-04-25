@@ -1,4 +1,3 @@
-"use strict";
 /**
  * apidrift/express
  *
@@ -11,14 +10,11 @@
  * const app = express()
  * app.use(apiDriftMiddleware())
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.apiDriftMiddleware = apiDriftMiddleware;
-exports.trackRoute = trackRoute;
-const tracker_js_1 = require("../core/tracker.js");
+import { track } from "../core/tracker.js";
 /**
  * Express middleware that intercepts outgoing JSON responses and tracks drift.
  */
-function apiDriftMiddleware(options = {}) {
+export function apiDriftMiddleware(options = {}) {
     return (req, res, next) => {
         const originalJson = res.json.bind(res);
         res.json = function patchedJson(body) {
@@ -31,7 +27,7 @@ function apiDriftMiddleware(options = {}) {
                             ? (result) => options.onDrift(result, req)
                             : undefined,
                     };
-                    (0, tracker_js_1.track)(routePath, body, trackOpts);
+                    track(routePath, body, trackOpts);
                 }
             }
             catch {
@@ -50,7 +46,7 @@ function apiDriftMiddleware(options = {}) {
  *   res.json(await db.getUser())
  * }))
  */
-function trackRoute(handler, options = {}) {
+export function trackRoute(handler, options = {}) {
     return (req, res, next) => {
         const originalJson = res.json.bind(res);
         res.json = function patchedJson(body) {
@@ -61,9 +57,11 @@ function trackRoute(handler, options = {}) {
                         ? (result) => options.onDrift(result, req)
                         : undefined,
                 };
-                (0, tracker_js_1.track)(req.baseUrl + req.path, body, trackOpts);
+                track(req.baseUrl + req.path, body, trackOpts);
             }
-            catch { /* never crash */ }
+            catch {
+                /* never crash */
+            }
             return originalJson(body);
         };
         handler(req, res, next);

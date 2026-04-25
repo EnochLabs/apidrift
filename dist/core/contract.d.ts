@@ -3,8 +3,12 @@ export interface ContractField {
     type: string;
     optional?: boolean;
     nullable?: boolean;
+    children?: Record<string, ContractField>;
+    items?: ContractField;
+    enum?: string[];
+    pattern?: string;
 }
-export type Contract = Record<string, ContractField | string>;
+export type Contract = Record<string, ContractField>;
 export interface ContractViolation {
     field: string;
     expected: string;
@@ -26,6 +30,10 @@ export declare function saveContracts(store: ContractStore): void;
  * Save current snapshot schema as a contract for an endpoint
  */
 export declare function lockContract(endpoint: string, schema: Schema): void;
+/**
+ * Remove contract for an endpoint
+ */
+export declare function unlockContract(endpoint: string): void;
 /**
  * Validate a schema against a contract
  */

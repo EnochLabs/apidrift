@@ -19,9 +19,7 @@ function endpointToTypeName(endpoint: string): string {
 
   if (parts.length === 0) return "ApiResponse";
 
-  const name = parts
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-    .join("_");
+  const name = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join("_");
 
   return `${name}Response`;
 }

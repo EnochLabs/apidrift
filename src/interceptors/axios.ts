@@ -16,10 +16,7 @@ export interface AxiosInterceptOptions extends TrackOptions {
  *   const api = axios.create({ baseURL: '...' })
  *   patchAxios(api)
  */
-export function patchAxios(
-  axiosInstance: AxiosLike,
-  options: AxiosInterceptOptions = {}
-): void {
+export function patchAxios(axiosInstance: AxiosLike, options: AxiosInterceptOptions = {}): void {
   axiosInstance.interceptors.response.use(
     (response: AxiosResponse) => {
       try {
@@ -32,9 +29,7 @@ export function patchAxios(
         }
 
         const contentType =
-          response.headers?.["content-type"] ??
-          response.headers?.["Content-Type"] ??
-          "";
+          response.headers?.["content-type"] ?? response.headers?.["Content-Type"] ?? "";
 
         if (contentType.includes("application/json") && response.data) {
           track(fullUrl, response.data, options);

@@ -33,7 +33,7 @@ npm install apidrift
 ## The 30-second version
 
 ```ts
-import 'apidrift/register'
+import "apidrift/register";
 // Done. Every fetch() call is now tracked.
 // Changes appear in your console immediately.
 ```
@@ -41,10 +41,10 @@ import 'apidrift/register'
 Or, if you prefer explicit:
 
 ```ts
-import { track } from 'apidrift'
+import { track } from "apidrift";
 
-const body = await fetch('/api/user').then(r => r.json())
-track('/api/user', body)
+const body = await fetch("/api/user").then((r) => r.json());
+track("/api/user", body);
 ```
 
 ---
@@ -79,7 +79,7 @@ npx apidrift init
 Then add one import to your app entry point:
 
 ```ts
-import 'apidrift/register'
+import "apidrift/register";
 ```
 
 That's it. apidrift will start reporting in your console as your app makes API calls.
@@ -117,7 +117,7 @@ apidrift generate-middleware <fw>         # generate FastAPI/Django middleware
 ### fetch (auto-patch)
 
 ```ts
-import 'apidrift/register'
+import "apidrift/register";
 // Every fetch() call in your app is now tracked.
 ```
 
@@ -150,30 +150,33 @@ function UserProfile() {
 Or wrap any async fetcher:
 
 ```ts
-import { withDriftTracking } from 'apidrift/react'
+import { withDriftTracking } from "apidrift/react";
 
-const getUser = withDriftTracking('/api/user', () => api.getUser())
-const { data, drift } = await getUser()
+const getUser = withDriftTracking("/api/user", () => api.getUser());
+const { data, drift } = await getUser();
 ```
 
 ### Express
 
 ```ts
-import { apiDriftMiddleware } from 'apidrift/express'
+import { apiDriftMiddleware } from "apidrift/express";
 
-app.use(apiDriftMiddleware())
+app.use(apiDriftMiddleware());
 // Tracks what your server sends out, not just what it receives.
 ```
 
 Or per-route:
 
 ```ts
-import { trackRoute } from 'apidrift/express'
+import { trackRoute } from "apidrift/express";
 
-app.get('/api/user', trackRoute(async (req, res) => {
-  const user = await db.getUser(req.params.id)
-  res.json(user)
-}))
+app.get(
+  "/api/user",
+  trackRoute(async (req, res) => {
+    const user = await db.getUser(req.params.id);
+    res.json(user);
+  })
+);
 ```
 
 ### FastAPI / Django
@@ -233,8 +236,8 @@ This writes `apidrift.contract.json` — commit it to your repo:
   "version": "1.0",
   "contracts": {
     "https://api.example.com/users": {
-      "id":    { "type": "number" },
-      "name":  { "type": "string" },
+      "id": { "type": "number" },
+      "name": { "type": "string" },
       "email": { "type": "string" }
     }
   }
@@ -260,10 +263,10 @@ apidrift goes beyond schema structure. When numeric fields shift statistically, 
 This uses Welford's online algorithm to maintain running statistics (mean, variance, min, max)
 for every numeric field across all responses. Detection thresholds:
 
-| Condition | Alert kind |
-|-----------|------------|
-| > 2.5 standard deviations from mean | SPIKE / DROP |
-| > 40% change from running mean | MEAN_SHIFT |
+| Condition                           | Alert kind     |
+| ----------------------------------- | -------------- |
+| > 2.5 standard deviations from mean | SPIKE / DROP   |
+| > 40% change from running mean      | MEAN_SHIFT     |
 | Outside historical min–max envelope | RANGE_EXCEEDED |
 
 Particularly useful for ML inference APIs, financial data feeds, and health metrics.
@@ -327,10 +330,10 @@ apidrift dashboard
 
 An interactive TUI, no browser, no external process. Four tabs:
 
-- **Overview**:  all endpoints, stability scores, change counts, sparklines
-- **Timeline**:  schema evolution history for the selected endpoint
+- **Overview**: all endpoints, stability scores, change counts, sparklines
+- **Timeline**: schema evolution history for the selected endpoint
 - **Contracts**: locked contracts and their status
-- **Help**:      all commands and environment variables
+- **Help**: all commands and environment variables
 
 Navigate with arrow keys, switch tabs with Tab or 1–4, quit with `q`.
 
@@ -340,31 +343,31 @@ Navigate with arrow keys, switch tabs with Tab or 1–4, quit with `q`.
 
 ```ts
 import {
-  track,             // (url, body, options?) → DriftResult | null
-  compare,           // (endpoint, oldBody, newBody) → DriftResult
-  patchFetch,        // (options?) → void
-  patchAxios,        // (instance, options?) → void
-  listSnapshots,     // () → Snapshot[]
-  getSnapshot,       // (endpoint) → Snapshot | null
+  track, // (url, body, options?) → DriftResult | null
+  compare, // (endpoint, oldBody, newBody) → DriftResult
+  patchFetch, // (options?) → void
+  patchAxios, // (instance, options?) → void
+  listSnapshots, // () → Snapshot[]
+  getSnapshot, // (endpoint) → Snapshot | null
   clearAllSnapshots, // () → void
-  getHistory,        // (endpoint) → EndpointHistory | null
-  lockContract,      // (endpoint, schema) → void
-  enforceContract,   // (endpoint, schema) → ContractResult
+  getHistory, // (endpoint) → EndpointHistory | null
+  lockContract, // (endpoint, schema) → void
+  enforceContract, // (endpoint, schema) → ContractResult
   generateTypesFromSnapshots, // (snapshots) → string
-  detectDataDrift,   // (endpoint, values, baseline) → DataDriftResult
-} from 'apidrift'
+  detectDataDrift, // (endpoint, values, baseline) → DataDriftResult
+} from "apidrift";
 ```
 
 ### `track(url, body, options?)`
 
 ```ts
-track('/api/user', body, {
+track("/api/user", body, {
   silent: false,
-  endpointKey: '/user',          // override storage key (strips query params by default)
-  dataDrift: true,               // enable numeric value tracking (default: true)
-  onDrift:    (result) => { },   // called on any schema change
-  onBreaking: (result) => { },   // called only for breaking changes
-})
+  endpointKey: "/user", // override storage key (strips query params by default)
+  dataDrift: true, // enable numeric value tracking (default: true)
+  onDrift: (result) => {}, // called on any schema change
+  onBreaking: (result) => {}, // called only for breaking changes
+});
 ```
 
 Returns a `DriftResult` if changes were found, `null` if the schema is unchanged or first-seen.
@@ -374,9 +377,9 @@ Returns a `DriftResult` if changes were found, `null` if the schema is unchanged
 One-shot comparison — no snapshot store involved:
 
 ```ts
-const result = compare('/api/user', responseYesterday, responseToday)
+const result = compare("/api/user", responseYesterday, responseToday);
 if (result.hasBreaking) {
-  result.changes.forEach(c => console.log(c.description))
+  result.changes.forEach((c) => console.log(c.description));
 }
 ```
 
@@ -384,20 +387,20 @@ if (result.hasBreaking) {
 
 ```ts
 interface DriftResult {
-  endpoint:    string;
-  timestamp:   string;
-  hasChanges:  boolean;
+  endpoint: string;
+  timestamp: string;
+  hasChanges: boolean;
   hasBreaking: boolean;
-  changes:     DriftChange[];
+  changes: DriftChange[];
 }
 
 interface DriftChange {
-  path:        string;       // dot-path to the changed field, e.g. "user.address.city"
-  kind:        'FIELD_REMOVED' | 'FIELD_ADDED' | 'TYPE_CHANGED' | 'NULLABLE_CHANGED' | 'OPTIONAL_CHANGED';
-  impact:      'BREAKING' | 'NON_BREAKING' | 'INFO';
-  from?:       string;       // previous type
-  to?:         string;       // new type
-  description: string;       // human-readable summary
+  path: string; // dot-path to the changed field, e.g. "user.address.city"
+  kind: "FIELD_REMOVED" | "FIELD_ADDED" | "TYPE_CHANGED" | "NULLABLE_CHANGED" | "OPTIONAL_CHANGED";
+  impact: "BREAKING" | "NON_BREAKING" | "INFO";
+  from?: string; // previous type
+  to?: string; // new type
+  description: string; // human-readable summary
 }
 ```
 
@@ -407,12 +410,12 @@ interface DriftChange {
 
 Everything lives in `.apidrift/` — plain JSON, local only, git-ignored by `apidrift init`:
 
-| File | Contents |
-|------|----------|
-| `.apidrift/snapshots.json` | Current schema baseline per endpoint |
-| `.apidrift/history.json` | Full version timeline (max 100 entries per endpoint) |
-| `.apidrift/datadrift.json` | Numeric field statistics (Welford running stats) |
-| `apidrift.contract.json` | Locked contracts — **commit this one** |
+| File                       | Contents                                             |
+| -------------------------- | ---------------------------------------------------- |
+| `.apidrift/snapshots.json` | Current schema baseline per endpoint                 |
+| `.apidrift/history.json`   | Full version timeline (max 100 entries per endpoint) |
+| `.apidrift/datadrift.json` | Numeric field statistics (Welford running stats)     |
+| `apidrift.contract.json`   | Locked contracts — **commit this one**               |
 
 ---
 
@@ -426,24 +429,24 @@ Everything lives in `.apidrift/` — plain JSON, local only, git-ignored by `api
 
 ## Environment variables
 
-| Variable | Effect |
-|----------|--------|
-| `APIDRIFT_SILENT=1` | Suppress all output (snapshots still update) |
-| `APIDRIFT_VERBOSE=1` | Log every tracked endpoint including no-drift responses |
-| `APIDRIFT_FILTER=<str>` | Only track URLs that contain this string |
-| `APIDRIFT_CI=1` | Exit the process with code 1 on first breaking drift |
+| Variable                | Effect                                                  |
+| ----------------------- | ------------------------------------------------------- |
+| `APIDRIFT_SILENT=1`     | Suppress all output (snapshots still update)            |
+| `APIDRIFT_VERBOSE=1`    | Log every tracked endpoint including no-drift responses |
+| `APIDRIFT_FILTER=<str>` | Only track URLs that contain this string                |
+| `APIDRIFT_CI=1`         | Exit the process with code 1 on first breaking drift    |
 
 ---
 
 ## How drift is classified
 
-| Change | Kind | Impact |
-|--------|------|--------|
-| Field removed | `FIELD_REMOVED` | 🔴 Breaking |
-| Field type changed | `TYPE_CHANGED` | 🔴 Breaking |
-| New field added | `FIELD_ADDED` | 🟡 Non-breaking |
-| Field became nullable | `NULLABLE_CHANGED` | 🔵 Info |
-| Field became optional | `OPTIONAL_CHANGED` | 🔵 Info |
+| Change                | Kind               | Impact          |
+| --------------------- | ------------------ | --------------- |
+| Field removed         | `FIELD_REMOVED`    | 🔴 Breaking     |
+| Field type changed    | `TYPE_CHANGED`     | 🔴 Breaking     |
+| New field added       | `FIELD_ADDED`      | 🟡 Non-breaking |
+| Field became nullable | `NULLABLE_CHANGED` | 🔵 Info         |
+| Field became optional | `OPTIONAL_CHANGED` | 🔵 Info         |
 
 ---
 

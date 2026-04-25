@@ -92,7 +92,9 @@ export function trackRoute(
             : undefined,
         };
         track(req.baseUrl + req.path, body, trackOpts);
-      } catch { /* never crash */ }
+      } catch {
+        /* never crash */
+      }
       return originalJson(body);
     };
     handler(req, res, next);

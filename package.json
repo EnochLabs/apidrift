@@ -1,38 +1,43 @@
 {
   "name": "apidrift",
   "version": "1.0.0",
+  "type": "module",
   "description": "Zero-config API drift detection. Catches breaking changes instantly — before they break your app.",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "apidrift": "dist/cli/index.js"
   },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./register": {
-      "import": "./dist/register.js",
-      "require": "./dist/register.js"
+      "import": "./dist/register.js"
     },
     "./react": {
-      "import": "./dist/plugins/react.js",
-      "require": "./dist/plugins/react.js",
-      "types": "./dist/plugins/react.d.ts"
+      "types": "./dist/plugins/react.d.ts",
+      "import": "./dist/plugins/react.js"
     },
     "./express": {
-      "import": "./dist/plugins/express.js",
-      "require": "./dist/plugins/express.js",
-      "types": "./dist/plugins/express.d.ts"
+      "types": "./dist/plugins/express.d.ts",
+      "import": "./dist/plugins/express.js"
     }
   },
+  "sideEffects": [
+    "./dist/register.js",
+    "./src/register.ts"
+  ],
   "scripts": {
-    "build": "tsc",
+    "clean": "rimraf dist",
+    "build": "npm run clean && tsc",
     "dev": "tsc --watch",
+    "lint": "eslint 'src/**/*.ts'",
+    "format": "prettier --write 'src/**/*.ts' 'test.mjs' 'package.json' 'README.md'",
     "test": "node test.mjs",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm run lint && npm test"
   },
   "keywords": [
     "api",
@@ -54,18 +59,40 @@
     "README.md",
     "LICENSE"
   ],
+  "peerDependencies": {
+    "express": "^4.17.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "typescript": "^5.3.3"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.3",
+    "rimraf": "^6.1.3",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.59.0"
   },
   "engines": {
     "node": ">=16.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/apidrift"
+    "url": "https://github.com/EnochLabs/apidrift.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/apidrift/issues"
-  }
+    "url": "https://github.com/EnochLabs/apidrift/issues"
+  },
+  "homepage": "https://github.com/EnochLabs/apidrift#readme"
 }

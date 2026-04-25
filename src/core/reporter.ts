@@ -41,12 +41,8 @@ export function reportDrift(result: DriftResult): void {
   if (!result.hasChanges) return;
 
   console.log("");
-  console.log(
-    `${c.bold}${result.hasBreaking ? c.red : c.yellow}⚠  API Drift Detected${c.reset}`
-  );
-  console.log(
-    `${c.gray}   Endpoint: ${c.reset}${c.white}${result.endpoint}${c.reset}`
-  );
+  console.log(`${c.bold}${result.hasBreaking ? c.red : c.yellow}⚠  API Drift Detected${c.reset}`);
+  console.log(`${c.gray}   Endpoint: ${c.reset}${c.white}${result.endpoint}${c.reset}`);
   console.log(`${c.gray}   At:       ${c.reset}${c.dim}${result.timestamp}${c.reset}`);
   console.log("");
 
@@ -81,10 +77,8 @@ export function reportDrift(result: DriftResult): void {
 
   // Summary line
   const parts: string[] = [];
-  if (breaking.length > 0)
-    parts.push(`${c.red}${breaking.length} breaking${c.reset}`);
-  if (nonBreaking.length > 0)
-    parts.push(`${c.yellow}${nonBreaking.length} non-breaking${c.reset}`);
+  if (breaking.length > 0) parts.push(`${c.red}${breaking.length} breaking${c.reset}`);
+  if (nonBreaking.length > 0) parts.push(`${c.yellow}${nonBreaking.length} non-breaking${c.reset}`);
   if (info.length > 0) parts.push(`${c.cyan}${info.length} info${c.reset}`);
 
   console.log(`  ${c.dim}Summary: ${parts.join(", ")}${c.reset}`);
@@ -100,9 +94,7 @@ function printChange(change: DriftChange): void {
       `    ${prefix} ${path}  ${c.gray}${change.from}${c.reset} → ${c.white}${change.to}${c.reset}`
     );
   } else if (change.from) {
-    console.log(
-      `    ${prefix} ${path}  ${c.gray}(was: ${change.from})${c.reset}`
-    );
+    console.log(`    ${prefix} ${path}  ${c.gray}(was: ${change.from})${c.reset}`);
   } else if (change.to) {
     console.log(`    ${prefix} ${path}  ${c.dim}(${change.to})${c.reset}`);
   } else {
@@ -119,9 +111,7 @@ export function reportFirstSeen(endpoint: string): void {
 export function reportNoDrift(endpoint: string): void {
   // Silent by default — only log if verbose
   if (process.env.APIDRIFT_VERBOSE) {
-    console.log(
-      `${c.gray}[apidrift] No drift: ${c.green}${endpoint}${c.reset}`
-    );
+    console.log(`${c.gray}[apidrift] No drift: ${c.green}${endpoint}${c.reset}`);
   }
 }
 
@@ -162,10 +152,10 @@ export function ciReport(results: DriftResult[]): number {
  * Generate a beautiful, interactive static HTML report.
  */
 export async function generateHtmlReport(outputPath: string): Promise<void> {
-  const fs = await import('fs');
-  const { listSnapshots } = await import('./storage.js');
-  const { getAllHistory } = await import('./history.js');
-  
+  const fs = await import("fs");
+  const { listSnapshots } = await import("./storage.js");
+  const { getAllHistory } = await import("./history.js");
+
   const snapshots = listSnapshots();
   const history = getAllHistory();
 
@@ -215,11 +205,11 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Breaking Changes</div>
-                    <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0), 0)}</div>
+                    <div class="text-3xl font-bold text-red-500">${Object.values(history.history).reduce((acc, h) => acc + h.entries.reduce((a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length, 0), 0)}</div>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="text-sm font-medium text-gray-400 uppercase mb-1">Avg Latency</div>
-                    <div class="text-3xl font-bold text-cyan-600">${(snapshots.reduce((acc, s) => acc + (s.avgLatency || 0), 0) / (snapshots.filter(s => s.avgLatency).length || 1)).toFixed(1)}ms</div>
+                    <div class="text-3xl font-bold text-cyan-600">${(snapshots.reduce((acc, s) => acc + (s.avgLatency || 0), 0) / (snapshots.filter((s) => s.avgLatency).length || 1)).toFixed(1)}ms</div>
                 </div>
             </section>
 
@@ -229,11 +219,18 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
 
             <section class="space-y-8" id="endpointList">
                 <h2 class="text-2xl font-bold text-gray-800">Endpoints</h2>
-                ${snapshots.map((s, idx) => {
+                ${snapshots
+                  .map((s, idx) => {
                     const h = history.history[s.endpoint] || { entries: [] };
-                    const breakingCount = h.entries.reduce((a, e) => a + e.changes.filter(c => c.impact === 'BREAKING').length, 0);
-                    const stabilityScore = Math.max(0, 100 - (h.entries.length - 1) * 5 - breakingCount * 15);
-                    
+                    const breakingCount = h.entries.reduce(
+                      (a, e) => a + e.changes.filter((c) => c.impact === "BREAKING").length,
+                      0
+                    );
+                    const stabilityScore = Math.max(
+                      0,
+                      100 - (h.entries.length - 1) * 5 - breakingCount * 15
+                    );
+
                     return `
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden endpoint-card" data-endpoint="${s.endpoint}">
                         <div class="p-6 border-b border-gray-50 flex justify-between items-start">
@@ -242,14 +239,14 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                                 <div class="flex items-center space-x-4 text-sm text-gray-500">
                                     <span>${Object.keys(s.schema).length} fields</span>
                                     <span>${s.responseCount} responses</span>
-                                    <span>${s.avgLatency ? s.avgLatency.toFixed(1) + 'ms avg' : 'N/A latency'}</span>
+                                    <span>${s.avgLatency ? s.avgLatency.toFixed(1) + "ms avg" : "N/A latency"}</span>
                                     <span>Last seen ${new Date(s.capturedAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                             <div class="ml-4 flex items-center space-x-4">
                                 <div class="text-right">
                                     <div class="text-xs font-medium text-gray-400 uppercase">Stability</div>
-                                    <div class="text-lg font-bold ${stabilityScore > 80 ? 'text-green-500' : stabilityScore > 50 ? 'text-yellow-500' : 'text-red-500'}">${stabilityScore}%</div>
+                                    <div class="text-lg font-bold ${stabilityScore > 80 ? "text-green-500" : stabilityScore > 50 ? "text-yellow-500" : "text-red-500"}">${stabilityScore}%</div>
                                 </div>
                                 <button onclick="toggleDetails('details-${idx}')" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold transition-colors">Details</button>
                             </div>
@@ -261,15 +258,25 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Schema</h4>
                                     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
                                         <div class="max-h-80 overflow-y-auto p-4 text-xs font-mono">
-                                            ${Object.entries(s.schema).map(([field, node]) => {
-                                                const opt = node.optional ? '<span class="text-gray-400">?</span>' : '';
-                                                const nullable = node.nullable ? '<span class="text-gray-400"> | null</span>' : '';
-                                                const sensitive = node.sensitive ? ' <span class="bg-red-100 text-red-600 px-1 rounded text-[10px] font-bold">SENSITIVE</span>' : '';
+                                            ${Object.entries(s.schema)
+                                              .map(([field, node]) => {
+                                                const opt = node.optional
+                                                  ? '<span class="text-gray-400">?</span>'
+                                                  : "";
+                                                const nullable = node.nullable
+                                                  ? '<span class="text-gray-400"> | null</span>'
+                                                  : "";
+                                                const sensitive = node.sensitive
+                                                  ? ' <span class="bg-red-100 text-red-600 px-1 rounded text-[10px] font-bold">SENSITIVE</span>'
+                                                  : "";
                                                 let typeStr = `<span class="text-yellow-600">${node.type}</span>`;
-                                                if (node.enum) typeStr = `<span class="text-purple-600">enum(${node.enum.join('|')})</span>`;
-                                                else if (node.type === 'array' && node.items) typeStr = `<span class="text-yellow-600">${node.items.type}[]</span>`;
+                                                if (node.enum)
+                                                  typeStr = `<span class="text-purple-600">enum(${node.enum.join("|")})</span>`;
+                                                else if (node.type === "array" && node.items)
+                                                  typeStr = `<span class="text-yellow-600">${node.items.type}[]</span>`;
                                                 return `<div class="mb-1"><span class="text-cyan-700 font-bold">${field}</span>${opt}: ${typeStr}${nullable}${sensitive}</div>`;
-                                            }).join('')}
+                                              })
+                                              .join("")}
                                         </div>
                                     </div>
                                 </div>
@@ -284,36 +291,45 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
                                 <div>
                                     <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Change History</h4>
                                     <div class="space-y-4 max-h-80 overflow-y-auto pr-2">
-                                        ${h.entries.slice().reverse().map((e, vIdx) => {
+                                        ${h.entries
+                                          .slice()
+                                          .reverse()
+                                          .map((e, vIdx) => {
                                             const vNum = h.entries.length - vIdx;
                                             return `
-                                            <div class="relative pl-6 pb-2 border-l-2 ${e.changes.some(c => c.impact === 'BREAKING') ? 'border-red-200' : 'border-gray-200'}">
-                                                <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full ${e.changes.some(c => c.impact === 'BREAKING') ? 'bg-red-400' : 'bg-gray-300'} border-2 border-white"></div>
+                                            <div class="relative pl-6 pb-2 border-l-2 ${e.changes.some((c) => c.impact === "BREAKING") ? "border-red-200" : "border-gray-200"}">
+                                                <div class="absolute left-[-9px] top-0 w-4 h-4 rounded-full ${e.changes.some((c) => c.impact === "BREAKING") ? "bg-red-400" : "bg-gray-300"} border-2 border-white"></div>
                                                 <div class="flex justify-between items-baseline mb-1">
                                                     <span class="font-bold text-sm">Version ${vNum}</span>
                                                     <span class="text-xs text-gray-400">${new Date(e.timestamp).toLocaleString()}</span>
                                                 </div>
-                                                ${e.changes.length === 0 ? '<p class="text-xs text-gray-400 italic">Initial baseline captured</p>' : ''}
+                                                ${e.changes.length === 0 ? '<p class="text-xs text-gray-400 italic">Initial baseline captured</p>' : ""}
                                                 <ul class="space-y-1">
-                                                    ${e.changes.map(c => `
+                                                    ${e.changes
+                                                      .map(
+                                                        (c) => `
                                                         <li class="text-xs flex items-start">
-                                                            <span class="mr-2 ${c.impact === 'BREAKING' ? 'text-red-500' : 'text-yellow-500'} font-bold">${c.impact === 'BREAKING' ? '✖' : '△'}</span>
+                                                            <span class="mr-2 ${c.impact === "BREAKING" ? "text-red-500" : "text-yellow-500"} font-bold">${c.impact === "BREAKING" ? "✖" : "△"}</span>
                                                             <span class="text-gray-600">
                                                                 <code class="bg-gray-100 px-1 rounded">${c.path}</code>: ${c.description}
                                                             </span>
                                                         </li>
-                                                    `).join('')}
+                                                    `
+                                                      )
+                                                      .join("")}
                                                 </ul>
                                             </div>
                                             `;
-                                        }).join('')}
+                                          })
+                                          .join("")}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     `;
-                }).join('')}
+                  })
+                  .join("")}
             </section>
         </main>
         
@@ -414,5 +430,5 @@ export async function generateHtmlReport(outputPath: string): Promise<void> {
 </html>
   `.trim();
 
-  fs.writeFileSync(outputPath, html, 'utf-8');
+  fs.writeFileSync(outputPath, html, "utf-8");
 }

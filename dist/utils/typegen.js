@@ -1,7 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateInterface = generateInterface;
-exports.generateTypesFromSnapshots = generateTypesFromSnapshots;
 /**
  * Generate a TypeScript interface name from an endpoint URL
  */
@@ -17,9 +13,7 @@ function endpointToTypeName(endpoint) {
         .filter(Boolean);
     if (parts.length === 0)
         return "ApiResponse";
-    const name = parts
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-        .join("_");
+    const name = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join("_");
     return `${name}Response`;
 }
 /**
@@ -28,87 +22,80 @@ function endpointToTypeName(endpoint) {
 function nodeToTS(node, indent = 0) {
     const pad = "  ".repeat(indent);
     let base;
-    switch (node.type) {
-        case "string":
-            base = "string";
-            break;
-        case "number":
-            base = "number";
-            break;
-        case "boolean":
-            base = "boolean";
-            break;
-        case "null":
-            base = "null";
-            break;
-        case "unknown":
-            base = "unknown";
-            break;
-        case "array":
-            if (node.items) {
-                const itemType = nodeToTS(node.items, indent);
-                base =
-                    node.items.type === "object"
-                        ? `Array<{\n${itemType}\n${pad}}>`
-                        : `${itemType}[]`;
-            }
-            else {
-                base = "unknown[]";
-            }
-            break;
-        case "object":
-            if (!node.children || Object.keys(node.children).length === 0) {
-                base = "Record<string, unknown>";
-            }
-            else {
-                const lines = Object.entries(node.children).map(([key, child]) => {
-                    const optional = child.optional ? "?" : "";
-                    const type = nodeToTS(child, indent + 1);
-                    return `${"  ".repeat(indent + 1)}${key}${optional}: ${type};`;
-                });
-                return lines.join("\n");
-            }
-            break;
-        default:
-            base = "unknown";
+    if (node.enum && node.enum.length > 0) {
+        base = node.enum.map((v) => JSON.stringify(v)).join(" | ");
+        if (node.sensitive)
+            base += ` /* sensitive */`;
+    }
+    else {
+        switch (node.type) {
+            case "string":
+                base = "string";
+                if (node.pattern)
+                    base += ` /* pattern: ${node.pattern} */`;
+                if (node.sensitive)
+                    base += ` /* sensitive */`;
+                break;
+            case "number":
+                base = "number";
+                if (node.sensitive)
+                    base += ` /* sensitive */`;
+                break;
+            case "boolean":
+                base = "boolean";
+                if (node.sensitive)
+                    base += ` /* sensitive */`;
+                break;
+            case "null":
+                base = "null";
+                break;
+            case "unknown":
+                base = "unknown";
+                break;
+            case "array":
+                if (node.items) {
+                    const itemType = nodeToTS(node.items, indent);
+                    base = node.items.type === "object" ? `Array<${itemType}>` : `${itemType}[]`;
+                }
+                else {
+                    base = "unknown[]";
+                }
+                break;
+            case "object":
+                if (!node.children || Object.keys(node.children).length === 0) {
+                    base = "Record<string, unknown>";
+                }
+                else {
+                    const childLines = Object.entries(node.children).map(([key, child]) => {
+                        const optional = child.optional ? "?" : "";
+                        const type = nodeToTS(child, indent + 1);
+                        return `${"  ".repeat(indent + 1)}${key}${optional}: ${type};`;
+                    });
+                    base = `{\n${childLines.join("\n")}\n${pad}}`;
+                }
+                break;
+            default:
+                base = "unknown";
+        }
     }
     if (node.nullable) {
-        base = `${base} | null`;
+        base = `(${base}) | null`;
     }
     return base;
 }
 /**
  * Generate a TypeScript interface from a Schema
  */
-function generateInterface(name, schema) {
+export function generateInterface(name, schema) {
+    if (schema._root) {
+        return `export type ${name} = ${nodeToTS(schema._root)};`;
+    }
     const lines = [];
     lines.push(`export interface ${name} {`);
     for (const [key, node] of Object.entries(schema)) {
-        if (key === "_root") {
-            // Non-object root — export as type alias instead
-            return `export type ${name} = ${nodeToTS(node)};`;
-        }
         const optional = node.optional ? "?" : "";
         const type = nodeToTS(node, 1);
-        if (node.type === "object" && node.children) {
-            lines.push(`  ${key}${optional}: {`);
-            for (const [childKey, childNode] of Object.entries(node.children)) {
-                const childOptional = childNode.optional ? "?" : "";
-                lines.push(`    ${childKey}${childOptional}: ${nodeToTS(childNode, 2)};`);
-            }
-            lines.push(`  };`);
-        }
-        else if (node.type === "array" && node.items?.type === "object" && node.items.children) {
-            lines.push(`  ${key}${optional}: Array<{`);
-            for (const [childKey, childNode] of Object.entries(node.items.children)) {
-                const childOptional = childNode.optional ? "?" : "";
-                lines.push(`    ${childKey}${childOptional}: ${nodeToTS(childNode, 2)};`);
-            }
-            lines.push(`  }>;`);
-        }
-        else {
-            lines.push(`  ${key}${optional}: ${type};`);
-        }
+        lines.push(`  ${key}${optional}: ${type};`);
     }
     lines.push(`}`);
     return lines.join("\n");
@@ -116,7 +103,7 @@ function generateInterface(name, schema) {
 /**
  * Generate TypeScript types from all snapshots
  */
-function generateTypesFromSnapshots(snapshots) {
+export function generateTypesFromSnapshots(snapshots) {
     const header = [
         `// Generated by apidrift`,
         `// ${new Date().toISOString()}`,

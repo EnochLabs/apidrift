@@ -26,21 +26,22 @@ interface ReactLike {
 }
 
 function loadReact(): ReactLike {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = (globalThis as any).React ?? (() => {
-    try {
-      // Dynamic require — only works in CJS / bundler environments
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      return (globalThis as any).__apidrift_require?.("react");
-    } catch {
-      return null;
-    }
-  })();
+  const r =
+    (globalThis as any).React ??
+    (() => {
+      try {
+        // Dynamic require — only works in CJS / bundler environments
+
+        return (globalThis as any).__apidrift_require?.("react");
+      } catch {
+        return null;
+      }
+    })();
 
   if (!r?.useState) {
     throw new Error(
       "[apidrift] React not found. Install react and ensure it is accessible globally, " +
-      "or use the programmatic track() API instead."
+        "or use the programmatic track() API instead."
     );
   }
   return r as ReactLike;
@@ -106,7 +107,9 @@ export function useApiDrift<T = unknown>(
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [url, ...(options.deps ?? [])]);
 
   return { data, loading, error, drift, hasBreaking: drift?.hasBreaking ?? false };

@@ -51,10 +51,7 @@ function saveDataDriftStore(store: DataDriftStore): void {
  * Update baseline stats for an endpoint with a new response body.
  * Returns the current field stats for drift comparison.
  */
-export function updateDataBaseline(
-  endpoint: string,
-  body: unknown
-): Record<string, FieldStats> {
+export function updateDataBaseline(endpoint: string, body: unknown): Record<string, FieldStats> {
   const store = loadDataDriftStore();
   if (!store.fields[endpoint]) store.fields[endpoint] = {};
 
@@ -81,9 +78,7 @@ export function updateDataBaseline(
   return store.fields[endpoint];
 }
 
-export function getDataBaseline(
-  endpoint: string
-): Record<string, FieldStats> {
+export function getDataBaseline(endpoint: string): Record<string, FieldStats> {
   const store = loadDataDriftStore();
   return store.fields[endpoint] ?? {};
 }

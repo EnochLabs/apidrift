@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.patchAxios = patchAxios;
-const tracker_js_1 = require("../core/tracker.js");
+import { track } from "../core/tracker.js";
 /**
  * Attach apidrift to an axios instance.
  *
@@ -14,7 +11,7 @@ const tracker_js_1 = require("../core/tracker.js");
  *   const api = axios.create({ baseURL: '...' })
  *   patchAxios(api)
  */
-function patchAxios(axiosInstance, options = {}) {
+export function patchAxios(axiosInstance, options = {}) {
     axiosInstance.interceptors.response.use((response) => {
         try {
             const url = response.config?.url ?? "";
@@ -23,11 +20,9 @@ function patchAxios(axiosInstance, options = {}) {
             if (options.filter && !options.filter(fullUrl)) {
                 return response;
             }
-            const contentType = response.headers?.["content-type"] ??
-                response.headers?.["Content-Type"] ??
-                "";
+            const contentType = response.headers?.["content-type"] ?? response.headers?.["Content-Type"] ?? "";
             if (contentType.includes("application/json") && response.data) {
-                (0, tracker_js_1.track)(fullUrl, response.data, options);
+                track(fullUrl, response.data, options);
             }
         }
         catch {

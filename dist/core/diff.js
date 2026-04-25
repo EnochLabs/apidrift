@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.diffSchemas = diffSchemas;
 /**
  * Classify impact of a change
  */
@@ -129,20 +126,14 @@ function diffNodes(path, oldNode, newNode, changes, depth = 0) {
     if (oldNode.type === "object" && newNode.type === "object") {
         const oldChildren = oldNode.children ?? {};
         const newChildren = newNode.children ?? {};
-        const allKeys = new Set([
-            ...Object.keys(oldChildren),
-            ...Object.keys(newChildren),
-        ]);
+        const allKeys = new Set([...Object.keys(oldChildren), ...Object.keys(newChildren)]);
         for (const key of allKeys) {
             diffNodes(path ? `${path}.${key}` : key, oldChildren[key], newChildren[key], changes, depth + 1);
         }
         return;
     }
     // Recurse into arrays — with explicit structural-switch detection
-    if (oldNode.type === "array" &&
-        newNode.type === "array" &&
-        oldNode.items &&
-        newNode.items) {
+    if (oldNode.type === "array" && newNode.type === "array" && oldNode.items && newNode.items) {
         const oldItems = oldNode.items;
         const newItems = newNode.items;
         // Detect the critical case: array switches between object items and
@@ -172,12 +163,9 @@ function diffNodes(path, oldNode, newNode, changes, depth = 0) {
 /**
  * Compare two schemas and return a DriftResult
  */
-function diffSchemas(endpoint, oldSchema, newSchema) {
+export function diffSchemas(endpoint, oldSchema, newSchema) {
     const changes = [];
-    const allKeys = new Set([
-        ...Object.keys(oldSchema),
-        ...Object.keys(newSchema),
-    ]);
+    const allKeys = new Set([...Object.keys(oldSchema), ...Object.keys(newSchema)]);
     for (const key of allKeys) {
         diffNodes(key, oldSchema[key], newSchema[key], changes, 0);
     }
